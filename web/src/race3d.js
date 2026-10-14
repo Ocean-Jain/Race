@@ -391,7 +391,7 @@ export class Race3D {
       z: spawn.z, yaw: Math.atan2(tangent.x, -tangent.z), speed: 0, nitro: player.nitro ?? 100,
       score: 0, laps: 0, lapProgress: 0, lastTrackT: trackT, checkpointPassed: false,
       ready: player.ready, connected: player.connected, latency: player.latency,
-      driveStarted: false, jump: 0, boost: false, index, bodyMat, labelTex, label, frontWheels,
+      driveStarted: false, jump: 0, penaltyRemaining: 0, boost: false, index, bodyMat, labelTex, label, frontWheels,
     };
     group.position.set(car.x, trackHeight(trackT), car.z); group.rotation.y = -car.yaw;
     this.cars.set(car.id, car);
@@ -456,6 +456,18 @@ export class Race3D {
       input = sample && performance.now() - sample.receivedAt < 320 ? sample.input : { steer: 0, throttle: 0, brake: false, jump: false, nitro: false };
     }
     const seconds = Math.min(dt / 1000, 0.04);
+    car.penaltyRemaining = Math.max(0, ((car.penaltyUntil || 0) - performance.now()) / 1000);
+    if (car.penaltyRemaining > 0) {
+      car.speed = 0;
+      car.jump = 0;
+      car.frontWheels.forEach(wheel => { wheel.rotation.y = 0; });
+      const stoppedTrack = trackFrame(car.lastTrackT);
+      car.yaw = Math.atan2(stoppedTrack.tangent.x, -stoppedTrack.tangent.z);
+      car.group.position.set(car.x, stoppedTrack.height, car.z);
+      car.group.rotation.y = -car.yaw;
+      car.group.scale.set(1, 1, 1);
+      return;
+    }
     const firstThrottleFrame = !car.driveStarted && input.throttle > 0;
     if (input.throttle > 0) car.driveStarted = true;
     const currentTrack = projectTrack(car.x, car.z, car.lastTrackT);
@@ -491,13 +503,28 @@ export class Race3D {
     car.x += Math.sin(car.yaw) * car.speed * seconds;
     car.z -= Math.cos(car.yaw) * car.speed * seconds;
     let trackPosition = projectTrack(car.x, car.z, currentTrack.t);
-    const roadLimit = ROAD_HALF_WIDTH - 7;
+    const forwardX = Math.sin(car.yaw), forwardZ = -Math.cos(car.yaw);
+    const rightX = Math.cos(car.yaw), rightZ = Math.sin(car.yaw);
+    const carHalfLength = 2.25, carHalfWidth = 1.05;
+    const halfFootprintAcrossRoad = carHalfLength * Math.abs(forwardX * trackPosition.normal.x + forwardZ * trackPosition.normal.z)
+      + carHalfWidth * Math.abs(rightX * trackPosition.normal.x + rightZ * trackPosition.normal.z);
+    const roadLimit = ROAD_HALF_WIDTH - 0.75 - halfFootprintAcrossRoad;
     if (Math.abs(trackPosition.lateral) > roadLimit) {
-      const clampedOffset = Math.sign(trackPosition.lateral) * roadLimit;
-      car.x = trackPosition.point.x + trackPosition.normal.x * clampedOffset;
-      car.z = trackPosition.point.z + trackPosition.normal.z * clampedOffset;
-      car.speed *= 0.55;
-      trackPosition = projectTrack(car.x, car.z, trackPosition.t);
+      // A boundary hit returns the car to the local track center and applies
+      // a stationary two-second penalty before controls are accepted again.
+      car.x = trackPosition.point.x;
+      car.z = trackPosition.point.z;
+      car.speed = 0;
+      car.jump = 0;
+      car.penaltyUntil = performance.now() + 2000;
+      car.penaltyRemaining = 2;
+      car.yaw = Math.atan2(trackPosition.tangent.x, -trackPosition.tangent.z);
+      car.lastTrackT = trackPosition.t;
+      car.frontWheels.forEach(wheel => { wheel.rotation.y = 0; });
+      car.group.position.set(car.x, trackPosition.height, car.z);
+      car.group.rotation.y = -car.yaw;
+      car.group.scale.set(1, 1, 1);
+      return;
     }
     const moveX = car.x - previousX, moveZ = car.z - previousZ;
     if (Math.hypot(moveX, moveZ) > 0.0001) car.yaw = Math.atan2(moveX, -moveZ);
@@ -544,7 +571,7 @@ export class Race3D {
     this.camera.aspect = cellW / cellH; this.camera.updateProjectionMatrix();
   }
 
-  renderViews() {
+  renderViews(deltaSeconds = 0) {
     const width = this.container.clientWidth, height = this.container.clientHeight;
     const cars = [...this.cars.values()];
     if (!width || !height || !cars.length) { this.renderer.setScissorTest(false); this.renderer.setClearColor('#192a34'); this.renderer.clear(); this.renderer.setScissorTest(true); return; }
@@ -559,10 +586,16 @@ export class Race3D {
       this.camera.aspect = w / h; this.camera.updateProjectionMatrix();
       const forwardX = Math.sin(car.yaw), forwardZ = -Math.cos(car.yaw);
       const chaseDistance = 9.4;
-      // Keep a constant chase-camera offset and height. It follows the car's position and heading
-      // without changing its distance or pitch as speed changes.
-      this.camera.position.set(car.x - forwardX * chaseDistance, car.group.position.y + 4.5 + car.jump * 0.25, car.z - forwardZ * chaseDistance);
-      this.camera.lookAt(car.x + forwardX * 7.5, car.group.position.y + 1.15 + car.jump * 0.25, car.z + forwardZ * 7.5);
+      // Keep a fixed chase distance and pitch, while damping position and aim
+      // independently for smooth cornering and penalty resets.
+      const desiredPosition = new THREE.Vector3(car.x - forwardX * chaseDistance, car.group.position.y + 4.5 + car.jump * 0.25, car.z - forwardZ * chaseDistance);
+      const desiredTarget = new THREE.Vector3(car.x + forwardX * 7.5, car.group.position.y + 1.15 + car.jump * 0.25, car.z + forwardZ * 7.5);
+      if (!car.cameraPose) car.cameraPose = { position: desiredPosition.clone(), target: desiredTarget.clone() };
+      const followAlpha = 1 - Math.exp(-7.5 * deltaSeconds);
+      car.cameraPose.position.lerp(desiredPosition, followAlpha);
+      car.cameraPose.target.lerp(desiredTarget, followAlpha);
+      this.camera.position.copy(car.cameraPose.position);
+      this.camera.lookAt(car.cameraPose.target);
       this.renderer.setViewport(left, bottom, w, h);
       this.renderer.setScissor(left, bottom, w, h);
       this.renderer.render(this.scene, this.camera);
@@ -574,7 +607,7 @@ export class Race3D {
     const dt = Math.min(50, now - this.lastFrame); this.lastFrame = now;
     for (const car of this.cars.values()) this.stepCar(car, dt);
     this.updatePickups(dt);
-    this.renderViews();
+    this.renderViews(dt / 1000);
     if (now - this.lastSend > 60) {
       this.lastSend = now;
       const cars = [...this.cars.values()].filter(car => car.id !== 'keyboard').map(car => ({ id: car.id, x: car.x + CENTER, y: car.z + 470, angle: car.yaw, score: Math.floor(car.score) }));
@@ -582,7 +615,7 @@ export class Race3D {
     }
     if (now - this.lastHud > 100) {
       this.lastHud = now;
-      window.dispatchEvent(new CustomEvent('hud', { detail: [...this.cars.values()].map(car => ({ id: car.id, name: car.name, nitro: car.nitro, score: Math.floor(car.score), laps: car.laps, latency: car.latency, connected: car.connected, x: car.x, z: car.z, yaw: car.yaw, speed: Math.round(Math.abs(car.speed) * 0.72), color: `#${car.color.toString(16).padStart(6, '0')}` })) }));
+      window.dispatchEvent(new CustomEvent('hud', { detail: [...this.cars.values()].map(car => ({ id: car.id, name: car.name, nitro: car.nitro, score: Math.floor(car.score), laps: car.laps, latency: car.latency, connected: car.connected, x: car.x, z: car.z, yaw: car.yaw, speed: Math.round(Math.abs(car.speed) * 0.72), penaltyRemaining: car.penaltyRemaining, color: `#${car.color.toString(16).padStart(6, '0')}` })) }));
     }
     this.frame = requestAnimationFrame(this.animate);
   }

@@ -151,7 +151,7 @@ function App() {
           <div className="race-panels" style={{ '--view-columns':columns }}>
             {racers.map(player => { const live = hudById.get(player.id); return <div className="race-player-cell" key={player.id}>
               <div className="cell-name"><i style={{background:live?.color || player.color}}/><span>{live?.name || player.name}</span></div>
-              <div className="cell-stats"><b>{live?.speed ?? 0}<small> km/h</small></b><span>{live?.score ?? 0} pts · {live?.laps ?? 0} laps</span><div className="cell-meter"><i style={{width:`${live?.nitro ?? player.nitro ?? 100}%`}}/></div></div>
+              <div className="cell-stats"><b>{live?.speed ?? 0}<small> km/h</small></b><span>{live?.score ?? 0} pts · {live?.laps ?? 0} laps</span>{live?.penaltyRemaining > 0 && <span className="penalty-badge">PENALTY · {live.penaltyRemaining.toFixed(1)}s</span>}<div className="cell-meter"><i style={{width:`${live?.nitro ?? player.nitro ?? 100}%`}}/></div></div>
               <Dashboard player={live}/>
             </div>; })}
           </div>

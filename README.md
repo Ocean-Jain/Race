@@ -8,7 +8,7 @@ TiltRace is a small multiplayer arcade racer. A browser runs the race and create
 | --- | --- | --- |
 | Monorepo | npm workspaces | Runs the server, browser game, and phone controller from one repository. |
 | Relay server | Node.js (ES modules), `ws` | Creates rooms, pairs clients, relays controller input, tracks readiness and ping, and validates nitro recharge claims. |
-| Browser game | React 18, Vite 6, Three.js 0.186 | Hosts the room and renders the 3D race; each racer gets a viewport and local frame-by-frame car simulation. |
+| Browser game | React 18, Vite 6, Three.js 0.186 | Hosts the room and renders the 3D race; each racer gets a viewport, a smoothly damped follow camera, and local frame-by-frame car simulation. |
 | Phone controller | React Native 0.86, Expo SDK 57 | Reads motion sensors, scans room QR codes, sends controls, and stores reconnect details. Expo Camera, Sensors, Haptics, Screen Orientation, and AsyncStorage provide those device features. |
 | Hosting | Render Blueprint (optional) | Serves the built browser app and WebSocket relay from a public HTTPS/WSS endpoint for play across networks. |
 
@@ -81,6 +81,7 @@ For local play, the laptop browser and phones must be able to reach each other o
 
 - Join in portrait; the controller locks to landscape after connecting. Rotate the phone left/right like a steering wheel to steer, then tap **Calibrate** to recenter. Steering uses the gyroscope with a small dead zone and smoothing, with a higher default sensitivity and an adjustable range up to 3×. Tilt input is ignored until the accelerator is first pressed; the car waits pointed along the circuit and then gets a gentle track-follow assist.
 - Cars accelerate only while **Accelerate** is held. Releasing it lets the car coast to a stop; **Brake** slows the car without putting it into reverse. Throttle acceleration has been reduced for more gradual speed buildup.
+- Hitting a track boundary resets the car to the track center at the collision point and holds it stationary for a two-second penalty. The camera eases after the reset rather than snapping to the new position.
 - Each complete circuit awards 2 bonus points. The finish scoreboard ranks racers by total points, with laps breaking ties.
 - Hold **Accelerate** to drive; hold **Brake** to slow down. On-screen feedback shows connection state and measured ping.
 - Shake the phone beyond the configurable threshold to trigger a short jump. A 1.4 second cooldown limits accidental retriggers.
