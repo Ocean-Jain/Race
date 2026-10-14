@@ -21,7 +21,9 @@ function parseLink(value) {
 export default function App() {
   const { width, height } = useWindowDimensions();
   const landscape = width > height;
-  const [server, setServer] = useState('ws://192.168.1.10:3001');
+  // The laptop's LAN IP is different on each network. Start empty so a new
+  // install cannot silently try to connect to a made-up example address.
+  const [server, setServer] = useState('');
   const [room, setRoom] = useState(''), [name, setName] = useState('Racer'), [status, setStatus] = useState('disconnected');
   const [latency, setLatency] = useState(null), [joined, setJoined] = useState(false), [playerName, setPlayerName] = useState('Racer');
   const [ready, setReady] = useState(false), [nitro, setNitro] = useState(100), [sensitivity, setSensitivity] = useState(1);
@@ -65,7 +67,8 @@ export default function App() {
       const saved = Object.fromEntries(rows);
       if (saved.room) setRoom(saved.room);
       if (saved.playerId) playerId.current = saved.playerId;
-      if (saved.server) setServer(saved.server);
+      // Discard the old example default used by earlier app versions.
+      if (saved.server && saved.server !== 'ws://192.168.1.10:3001') setServer(saved.server);
       if (saved.name) setName(saved.name);
     });
     Accelerometer.setUpdateInterval(25);
@@ -240,7 +243,7 @@ export default function App() {
     {!joined ? <ScrollView contentContainerStyle={s.wrap} keyboardShouldPersistTaps="handled">
       {brand}<Text style={s.kicker}>MOTION CONTROLLER</Text><Text style={s.title}>YOUR PHONE.<Text style={{ color: COLOR }}> YOUR WHEEL.</Text></Text>
       <Text style={s.sub}>Join a race and steer by tilting your phone.</Text>
-      <View style={s.card}><Text style={s.label}>GAME SERVER ADDRESS</Text><TextInput style={s.input} autoCapitalize="none" value={server} onChangeText={setServer} placeholder="wss://your-game-host.example" placeholderTextColor="#647584"/><Text style={s.hint}>Scan the game QR to fill in the server and room.</Text>
+      <View style={s.card}><Text style={s.label}>GAME SERVER ADDRESS</Text><TextInput style={s.input} autoCapitalize="none" value={server} onChangeText={setServer} placeholder="ws://LAPTOP-IP:3001" placeholderTextColor="#647584"/><Text style={s.hint}>Scan the game QR to fill in the server and room. For local play, use your laptop's Wi-Fi IP on port 3001.</Text>
         <Text style={[s.label,{ marginTop: 19 }]}>ROOM CODE</Text><View style={s.joinrow}><TextInput style={[s.input,s.roomInput]} value={room} onChangeText={value => setRoom(value.toUpperCase().slice(0,8))} placeholder="A1B2C3D4" placeholderTextColor="#647584" autoCapitalize="characters" maxLength={8}/><Pressable style={s.scanBtn} onPress={scan}><Text style={s.scanText}>▣ Scan QR</Text></Pressable></View>
         <Text style={[s.label,{ marginTop: 19 }]}>RACER NAME</Text><TextInput style={s.input} value={name} onChangeText={setName} maxLength={18} placeholder="Racer" placeholderTextColor="#647584"/><Pressable style={[s.mainBtn,(!room || !server) && { opacity: 0.45 }]} onPress={join} disabled={!room || !server}><Text style={s.mainText}>JOIN ROOM　→</Text></Pressable>
       </View><View style={s.help}><Text style={s.helpTitle}>PORTRAIT JOIN · LANDSCAPE RACE</Text><Text style={s.helpText}>Scan and connect in portrait. The controller rotates to landscape after joining; calibrate, then rotate the phone like a steering wheel.</Text></View>{notice}

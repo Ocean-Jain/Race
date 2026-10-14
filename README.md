@@ -25,7 +25,7 @@ npm install
 npm run dev
 ```
 
-This starts the WebSocket server on port `3001` and Vite on port `5173`, both listening on all network interfaces. Open `http://localhost:5173` on the laptop for local play. For phone pairing on the same Wi-Fi, open the laptop's LAN URL such as `http://192.168.1.20:5173`; the QR uses that host as the WebSocket server address. The server health endpoint is `http://localhost:3001/health`.
+This starts the WebSocket server on port `3001` and Vite on port `5173`, both listening on all network interfaces. These are separate services on separate ports, so this setup does not create a port conflict. The mobile controller also connects to the WebSocket server on port `3001`; only the laptop's IP/hostname changes. Open `http://localhost:5173` on the laptop for local play. For phone pairing on the same Wi-Fi, open the laptop's LAN URL such as `http://192.168.1.20:5173`; the QR uses that host with port `3001` as the WebSocket server address. The server health endpoint is `http://localhost:3001/health`.
 
 To run components separately:
 
@@ -87,7 +87,7 @@ Disconnected player records are retained for 60 seconds. The controller stores t
 
 ## Network, permissions, and troubleshooting
 
-- **Connection refused:** confirm the server is running, use the laptop's LAN IP rather than `localhost` on the phone for local play, and allow port 3001 through the private-network firewall. For internet play, use the deployed `wss://` host.
+- **Connection refused:** confirm the server is running, use the laptop's LAN IP rather than `localhost` on the phone for local play, and allow port 3001 through the private-network firewall. The controller no longer fills in a fixed example IP; scan the race QR or enter `ws://LAPTOP-IP:3001`. If the server reports `EADDRINUSE`, another process already owns port 3001; stop that process before starting TiltRace. For internet play, use the deployed `wss://` host.
 - **QR scan filled no room:** confirm it is the room QR displayed by TiltRace. You can type the eight-character code instead.
 - **Phone says the race page disconnected:** the browser page refreshed or lost its WebSocket. Create a new room in the browser and scan its new QR code; an old room cannot reconnect to a newly created browser room.
 - **Local devices on Wi-Fi cannot connect:** disable guest Wi-Fi/client isolation or connect both devices to the same non-isolated subnet. Public hosting avoids this restriction.
