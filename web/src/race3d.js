@@ -5,6 +5,9 @@ const CENTER = 600;
 const TRACK_RADIUS = 290;
 const INNER_EDGE = 222;
 const OUTER_EDGE = 358;
+const CHECKPOINT_ANGLE = Math.PI;
+const MAX_STEER_ANGLE = 0.46;
+const EFFECTIVE_WHEELBASE = 34;
 const PICKUP_ANGLES = [0, Math.PI * 0.4, Math.PI * 0.8, Math.PI * 1.2, Math.PI * 1.6];
 const OBSTACLE_ANGLES = [0.72, 2.15, 3.58, 5.05];
 const TWO_PI = Math.PI * 2;
@@ -160,6 +163,19 @@ export class Race3D {
       this.scene.add(tile);
     }
 
+    // A second gate sits opposite the start line. Lap progress only counts once a racer passes it.
+    const checkpointBlue = new THREE.MeshStandardMaterial({ color: 0x32d7e8, emissive: 0x087b8c, emissiveIntensity: 0.65, roughness: 0.42 });
+    const checkpointWhite = new THREE.MeshStandardMaterial({ color: 0xe9f6ef, roughness: 0.72 });
+    for (let row = 0; row < 2; row++) for (let col = 0; col < 14; col++) {
+      const tile = new THREE.Mesh(square, (row + col) % 2 ? checkpointBlue : checkpointWhite);
+      tile.position.set(-63 + col * 9, 0.15, TRACK_RADIUS - 4.5 + row * 9);
+      this.scene.add(tile);
+    }
+    const gatePost = new THREE.Mesh(new THREE.BoxGeometry(2.6, 8, 2.6), checkpointBlue);
+    for (const x of [-70, 70]) { const post = gatePost.clone(); post.position.set(x, 4, TRACK_RADIUS); this.scene.add(post); }
+    const gateTop = new THREE.Mesh(new THREE.BoxGeometry(142, 2.8, 2.8), checkpointBlue);
+    gateTop.position.set(0, 8, TRACK_RADIUS); this.scene.add(gateTop);
+
     const infield = new THREE.Mesh(new THREE.CircleGeometry(INNER_EDGE - 2, 160), new THREE.MeshStandardMaterial({ color: 0x54794b, map: grass, roughness: 1 }));
     infield.rotation.x = -Math.PI / 2; infield.position.y = 0.025; this.scene.add(infield);
     this.addInfieldDetails();
@@ -256,13 +272,16 @@ export class Race3D {
     };
     addArm(-1); addArm(1);
     addBox(new THREE.BoxGeometry(1.86, 0.12, 0.16), chrome, 0, 0.9, 2.22);
+    const frontWheels = [];
     for (const side of [-1, 1]) {
-      const wheel = new THREE.Mesh(new THREE.CylinderGeometry(0.48, 0.48, 0.34, 20), darkMat);
-      wheel.rotation.z = Math.PI / 2; wheel.position.set(side * 1.02, 0.57, -1.35); group.add(wheel);
-      const backWheel = wheel.clone(); backWheel.position.z = 1.42; group.add(backWheel);
-      for (const tire of [wheel, backWheel]) {
-        const hub = new THREE.Mesh(new THREE.CylinderGeometry(0.23, 0.23, 0.37, 12), chrome); hub.rotation.z = Math.PI / 2; hub.position.copy(tire.position); group.add(hub);
-        const hubcap = new THREE.Mesh(new THREE.CylinderGeometry(0.1, 0.1, 0.39, 10), bodyMat); hubcap.rotation.z = Math.PI / 2; hubcap.position.copy(tire.position); group.add(hubcap);
+      const frontAxle = new THREE.Group(); frontAxle.position.z = -1.35; group.add(frontAxle); frontWheels.push(frontAxle);
+      for (const [parent, z] of [[frontAxle, 0], [group, 1.42]]) {
+        const tire = new THREE.Mesh(new THREE.CylinderGeometry(0.48, 0.48, 0.34, 20), darkMat);
+        tire.rotation.z = Math.PI / 2; tire.position.set(side * 1.02, 0.57, z); parent.add(tire);
+        const hub = new THREE.Mesh(new THREE.CylinderGeometry(0.23, 0.23, 0.37, 12), chrome);
+        hub.rotation.z = Math.PI / 2; hub.position.copy(tire.position); parent.add(hub);
+        const hubcap = new THREE.Mesh(new THREE.CylinderGeometry(0.1, 0.1, 0.39, 10), bodyMat);
+        hubcap.rotation.z = Math.PI / 2; hubcap.position.copy(tire.position); parent.add(hubcap);
       }
       addBox(new THREE.BoxGeometry(0.38, 0.19, 0.16), headlight, side * 0.67, 1.08, -2.18);
       addBox(new THREE.BoxGeometry(0.36, 0.18, 0.14), tailLight, side * 0.68, 1.04, 2.2);
@@ -273,10 +292,10 @@ export class Race3D {
     decal.rotation.x = -Math.PI / 2; decal.position.set(0, 1.255, -1.16); group.add(decal);
     const numberTag = new THREE.Mesh(new THREE.PlaneGeometry(0.75, 0.38), new THREE.MeshBasicMaterial({ color: 0xf4f8fa }));
     numberTag.rotation.x = -Math.PI / 2; numberTag.position.set(0, 1.258, 0.48); group.add(numberTag);
-    const labelCanvas = document.createElement('canvas'); labelCanvas.width = 256; labelCanvas.height = 64;
-    const ctx = labelCanvas.getContext('2d'); ctx.fillStyle = '#08131b'; ctx.fillRect(0, 0, 256, 64); ctx.fillStyle = '#ffffff'; ctx.font = 'bold 30px Arial'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText(player.name.slice(0, 16).toUpperCase(), 128, 32);
+    const labelCanvas = document.createElement('canvas'); labelCanvas.width = 256; labelCanvas.height = 48;
+    const ctx = labelCanvas.getContext('2d'); ctx.fillStyle = '#08131bdc'; ctx.beginPath(); ctx.roundRect(3, 3, 250, 42, 16); ctx.fill(); ctx.fillStyle = '#ffffff'; ctx.font = 'bold 22px Arial'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText(player.name.slice(0, 16).toUpperCase(), 128, 24);
     const labelTex = new THREE.CanvasTexture(labelCanvas); labelTex.colorSpace = THREE.SRGBColorSpace;
-    const label = new THREE.Sprite(new THREE.SpriteMaterial({ map: labelTex, transparent: true, depthTest: false })); label.position.set(0, 3.9, 0); label.scale.set(8.2, 2.05, 1); group.add(label);
+    const label = new THREE.Sprite(new THREE.SpriteMaterial({ map: labelTex, transparent: true, depthTest: true, depthWrite: false })); label.position.set(0, 1.55, 2.05); label.scale.set(3.5, 0.66, 1); group.add(label);
     this.scene.add(group);
 
     const theta = -0.07 - Math.floor(index / 2) * 0.09;
@@ -284,9 +303,9 @@ export class Race3D {
     const car = {
       id: player.id, name: player.name, color, group, x: Math.sin(theta) * radius,
       z: -Math.cos(theta) * radius, yaw: theta + Math.PI / 2, speed: 0, nitro: player.nitro ?? 100,
-      score: 0, laps: 0, lapProgress: 0, lastTrackAngle: theta,
+      score: 0, laps: 0, lapProgress: 0, lastTrackAngle: theta, checkpointPassed: false,
       ready: player.ready, connected: player.connected, latency: player.latency,
-      driveStarted: false, jump: 0, boost: false, index, bodyMat, labelTex, cameraPosition: null,
+      driveStarted: false, jump: 0, boost: false, index, bodyMat, labelTex, label, frontWheels,
     };
     group.position.set(car.x, 0, car.z); group.rotation.y = car.yaw;
     this.cars.set(car.id, car);
@@ -365,7 +384,11 @@ export class Race3D {
     }
     car.speed = THREE.MathUtils.clamp(car.speed, 0, boosting ? 150 : 112);
     if (boosting) car.nitro = Math.max(0, car.nitro - 28 * seconds);
-    car.yaw += steering * seconds * (0.45 + Math.min(Math.abs(car.speed) / 85, 1.15));
+    // Use a bicycle steering model: the car only yaws while moving, around its turning arc,
+    // and the front tires visibly steer into the corner instead of spinning the chassis in place.
+    const steerAngle = steering * MAX_STEER_ANGLE;
+    car.yaw += car.speed * Math.tan(steerAngle) / EFFECTIVE_WHEELBASE * seconds;
+    car.frontWheels.forEach(wheel => { wheel.rotation.y = steerAngle; });
     const previousX = car.x, previousZ = car.z;
     car.x += Math.sin(car.yaw) * car.speed * seconds;
     car.z -= Math.cos(car.yaw) * car.speed * seconds;
@@ -383,11 +406,15 @@ export class Race3D {
     const angleDelta = wrappedAngleDelta(car.lastTrackAngle, trackAngle);
     if (trackRadius >= INNER_EDGE + 4 && trackRadius <= OUTER_EDGE - 4 && car.speed > 3 && angleDelta > 0) {
       car.lapProgress += angleDelta;
+      if (!car.checkpointPassed && car.lapProgress >= CHECKPOINT_ANGLE) car.checkpointPassed = true;
       if (car.lapProgress >= TWO_PI) {
         const completedLaps = Math.floor(car.lapProgress / TWO_PI);
         car.lapProgress %= TWO_PI;
-        car.laps += completedLaps;
-        car.score += completedLaps * 2;
+        if (car.checkpointPassed) {
+          car.laps += completedLaps;
+          car.score += completedLaps * 2;
+        }
+        car.checkpointPassed = false;
       }
     }
     car.lastTrackAngle = trackAngle;
@@ -397,7 +424,6 @@ export class Race3D {
     car.group.position.set(car.x, bob, car.z); car.group.rotation.y = car.yaw;
     if (!car.jump) car.group.scale.set(1, 1, 1);
     else car.group.scale.set(1.05, 1.05, 1.05);
-    car.score = Math.max(0, car.score + Math.max(car.speed, 0) * seconds / 12);
   }
 
   updatePickups(dt) {
@@ -434,11 +460,10 @@ export class Race3D {
       const bottom = height - top - h;
       this.camera.aspect = w / h; this.camera.updateProjectionMatrix();
       const forwardX = Math.sin(car.yaw), forwardZ = -Math.cos(car.yaw);
-      const chaseDistance = 8.6 + Math.min(car.speed * 0.018, 2.2);
-      const chaseTarget = new THREE.Vector3(car.x - forwardX * chaseDistance, 4.3 + Math.min(car.speed * 0.006, 0.6) + car.jump * 0.25, car.z - forwardZ * chaseDistance);
-      if (!car.cameraPosition) car.cameraPosition = chaseTarget.clone();
-      else car.cameraPosition.lerp(chaseTarget, 0.18);
-      this.camera.position.copy(car.cameraPosition);
+      const chaseDistance = 9.4;
+      // Keep a constant chase-camera offset and height. It follows the car's position and heading
+      // without changing its distance or pitch as speed changes.
+      this.camera.position.set(car.x - forwardX * chaseDistance, 4.5 + car.jump * 0.25, car.z - forwardZ * chaseDistance);
       this.camera.lookAt(car.x + forwardX * 7.5, 1.15 + car.jump * 0.25, car.z + forwardZ * 7.5);
       this.renderer.setViewport(left, bottom, w, h);
       this.renderer.setScissor(left, bottom, w, h);
