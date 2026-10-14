@@ -80,7 +80,7 @@ export class Race3D {
     this.scene = new THREE.Scene();
     this.scene.background = new THREE.Color('#91a8b4');
     this.scene.fog = new THREE.Fog('#91a8b4', 520, 1150);
-    this.camera = new THREE.PerspectiveCamera(62, 1, 0.1, 1600);
+    this.camera = new THREE.PerspectiveCamera(78, 1, 0.1, 1600);
     this.renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: 'high-performance' });
     this.renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 1.5));
     this.renderer.setSize(container.clientWidth, container.clientHeight, false);
@@ -218,7 +218,7 @@ export class Race3D {
     const group = new THREE.Group();
     const bodyMat = carMaterial(color, { metalness: 0.65, roughness: 0.24 });
     const darkMat = carMaterial(0x111820, { metalness: 0.25, roughness: 0.42 });
-    const glassMat = new THREE.MeshPhysicalMaterial({ color: 0x94ddf0, metalness: 0.18, roughness: 0.15, transparent: true, opacity: 0.75, clearcoat: 0.9 });
+    const glassMat = new THREE.MeshPhysicalMaterial({ color: 0x94ddf0, metalness: 0.18, roughness: 0.15, transparent: true, opacity: 0.38, depthWrite: false, clearcoat: 0.9 });
     const chrome = new THREE.MeshStandardMaterial({ color: 0xd9e4e9, metalness: 0.85, roughness: 0.22 });
     const headlight = new THREE.MeshStandardMaterial({ color: 0xeafaff, emissive: 0x92eaff, emissiveIntensity: 2.2, roughness: 0.18 });
     const tailLight = new THREE.MeshStandardMaterial({ color: 0xff493c, emissive: 0xff251a, emissiveIntensity: 1.6 });
@@ -229,6 +229,26 @@ export class Race3D {
     addBox(new THREE.BoxGeometry(2.05, 0.52, 4.45), darkMat, 0, 0.78, 0);
     addBox(new THREE.BoxGeometry(1.92, 0.44, 3.88), bodyMat, 0, 1.02, 0.05);
     const roof = new THREE.Mesh(new THREE.BoxGeometry(1.52, 0.62, 1.92), glassMat); roof.position.set(0, 1.47, 0.28); group.add(roof);
+    // Seated racer, visible through the glass from the other players' cameras.
+    const driverSuit = carMaterial(color, { metalness: 0.12, roughness: 0.72 });
+    const helmetMat = carMaterial(0xf4f4e9, { metalness: 0.2, roughness: 0.3 });
+    const visorMat = new THREE.MeshStandardMaterial({ color: 0x12252d, metalness: 0.65, roughness: 0.16 });
+    addBox(new THREE.BoxGeometry(0.76, 0.74, 0.42), driverSuit, 0, 1.44, 0.3);
+    const helmet = new THREE.Mesh(new THREE.SphereGeometry(0.34, 18, 14), helmetMat); helmet.position.set(0, 1.98, 0.02); group.add(helmet);
+    addBox(new THREE.BoxGeometry(0.46, 0.17, 0.14), visorMat, 0, 2.01, -0.26);
+    const steeringWheel = new THREE.Mesh(new THREE.TorusGeometry(0.34, 0.055, 8, 20), darkMat);
+    steeringWheel.position.set(0, 1.37, -0.48); steeringWheel.rotation.x = Math.PI / 2.8; group.add(steeringWheel);
+    const addArm = side => {
+      const start = new THREE.Vector3(side * 0.3, 1.67, 0.12);
+      const end = new THREE.Vector3(side * 0.26, 1.42, -0.34);
+      const direction = end.clone().sub(start);
+      const arm = new THREE.Mesh(new THREE.CylinderGeometry(0.105, 0.13, direction.length(), 10), driverSuit);
+      arm.position.copy(start).add(end).multiplyScalar(0.5);
+      arm.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), direction.normalize());
+      group.add(arm);
+      const glove = new THREE.Mesh(new THREE.SphereGeometry(0.12, 10, 8), darkMat); glove.position.copy(end); group.add(glove);
+    };
+    addArm(-1); addArm(1);
     addBox(new THREE.BoxGeometry(1.82, 0.2, 1.12), bodyMat, 0, 1.18, -1.28);
     addBox(new THREE.BoxGeometry(1.7, 0.2, 0.9), bodyMat, 0, 1.16, 1.48);
     addBox(new THREE.BoxGeometry(2.26, 0.12, 0.2), darkMat, 0, 1.45, 1.97);
@@ -368,12 +388,14 @@ export class Race3D {
       const w = Math.round((col + 1) * cellW) - left, h = Math.round((row + 1) * cellH) - top;
       const bottom = height - top - h;
       this.camera.aspect = w / h; this.camera.updateProjectionMatrix();
-      const behindX = Math.sin(car.yaw) * 11.5, behindZ = Math.cos(car.yaw) * 11.5;
-      this.camera.position.set(car.x + behindX, 7.4 + car.jump * 0.25, car.z + behindZ);
-      this.camera.lookAt(car.x - Math.sin(car.yaw) * 7, 1.15 + car.jump * 0.3, car.z + Math.cos(car.yaw) * 7);
+      const forwardX = Math.sin(car.yaw), forwardZ = -Math.cos(car.yaw);
+      this.camera.position.set(car.x + forwardX * 1.4, 2.0 + car.jump * 0.25, car.z + forwardZ * 1.4);
+      this.camera.lookAt(car.x + forwardX * 40, 1.6 + car.jump * 0.3, car.z + forwardZ * 40);
       this.renderer.setViewport(left, bottom, w, h);
       this.renderer.setScissor(left, bottom, w, h);
-      this.renderer.render(this.scene, this.camera);
+      car.group.visible = false;
+      try { this.renderer.render(this.scene, this.camera); }
+      finally { car.group.visible = true; }
     });
   }
 

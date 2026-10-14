@@ -5,10 +5,10 @@ TiltRace is a small multiplayer arcade racer. A browser runs the race and create
 ## Architecture and stack
 
 - **Server:** Node.js and `ws`. It creates eight-character room codes, issues per-player session IDs, tracks readiness and latency, relays bounded controller input, and owns each player's nitro balance. The browser reports car positions at 16 Hz; the server checks those positions against fixed recharge zones and sends validated nitro pickup events.
-- **Browser:** React + Three.js. A shared 3D scene is rendered through a separate third-person camera for each racer, with a circular road, detailed cars, track barriers, nitro recharge pads, a translucent minimap, a timer, and a keyboard driver.
+- **Browser:** React + Three.js. A shared 3D scene is rendered through a separate hood-level first-person camera for each racer. Each viewport hides its own car while showing the other cars and their visible drivers, with a circular road, track barriers, nitro recharge pads, a translucent minimap, a timer, and a keyboard driver.
 - **Phone:** React Native with Expo SDK 57 and React Native 0.86. Expo Sensors, Camera, Haptics, and AsyncStorage provide motion, QR scanning, feedback, and reconnect persistence while keeping Android builds reproducible without private signing credentials. SDK 57 follows Expo's current stable React Native and React pairing ([SDK reference](https://docs.expo.dev/versions/latest/)).
 
-The app streams normalized steering, gyro samples, and button state at 30 Hz. The server accepts at most 50 input updates per second per player and broadcasts inputs to the browser. The browser simulates cars locally at up to 60 frames per second and reports position snapshots every 60 ms. Steering smoothing and neutral calibration run on the phone. Latency is measured as round-trip time from server ping to phone reply, then shared with the browser and shown on both screens. Wi-Fi, device load, and browser scheduling can all add delay; WebSockets do not remove network latency.
+The landscape controller streams normalized steering, gyro samples, and button state at 30 Hz. The server accepts at most 50 input updates per second per player and broadcasts inputs to the browser. The browser simulates cars locally at up to 60 frames per second and reports position snapshots every 60 ms. Steering smoothing and neutral calibration run on the phone. Latency is measured as round-trip time from server ping to phone reply, then shared with the browser and shown on both screens. Wi-Fi, device load, and browser scheduling can all add delay; WebSockets do not remove network latency.
 
 ## Prerequisites
 
@@ -53,15 +53,15 @@ The server supports an optional comma-separated `ALLOWED_ORIGINS` environment va
 
 1. Find the laptop's Wi-Fi IPv4 address (for example `192.168.1.20`). Open `http://192.168.1.20:5173` on the laptop, keep the server on port 3001, and allow Node.js through the laptop firewall on the private network. The QR's server address comes from this page URL, so using `localhost` here would make the phone try to connect to itself.
 2. On the laptop, open the browser game and choose **Create a race room**. It displays a QR code and eight-character room code.
-3. In a terminal, run `cd mobile && npm install && npx expo start`. Open TiltRace Controller in Expo Go or install a development/release build.
+3. In a terminal, run `cd mobile && npm install && npx expo start`. Open TiltRace Controller in Expo Go or install a development/release build. Rebuild/reinstall a native app after changing the Expo orientation setting so it takes effect on the phone.
 4. Scan the browser QR or enter `ws://LAPTOP-IP:3001` and the room code in the phone app. The QR encodes both server address and room. Scanning requires camera permission; code entry is always available.
-5. Hold the phone comfortably, tap **Calibrate neutral**, then tap **Ready to race**. The laptop host starts the round when racers are ready. Each additional phone repeats the join steps with the same room code.
+5. Hold the phone sideways in landscape, tap **Calibrate**, then tap **Ready to race**. The laptop host starts the round when racers are ready. Each additional phone repeats the join steps with the same room code.
 
 For local play, the laptop browser and phones must be able to reach each other over Wi-Fi. Open inbound TCP ports 5173 (web page) and 3001 (WebSocket) on the laptop's private network if the firewall asks. The QR is generated in the browser and is not uploaded to a service.
 
 ## Controls and round flow
 
-- Tilt left/right to steer; the neutral calibration button records the current accelerometer X axis as zero. Change steering sensitivity in the controller settings. A smoothing coefficient filters sensor noise.
+- Hold the phone in landscape and tilt left/right to steer; the neutral calibration button records the current lateral accelerometer axis as zero. Change steering sensitivity in the controller settings. A smoothing coefficient filters sensor noise.
 - Hold **Accelerate** to drive; hold **Brake** to slow down. On-screen feedback shows connection state and measured ping.
 - Shake the phone beyond the configurable threshold to trigger a short jump. A 1.4 second cooldown limits accidental retriggers.
 - Press **Nitro** to consume a server-issued boost charge. The glowing green pads along the track recharge up to 35 points each, subject to a server-side 1.5 second pickup cooldown. Haptics can be disabled in the controller.

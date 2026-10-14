@@ -95,7 +95,7 @@ function App() {
       <p>Turn your phone into a steering wheel. Join the room, lean into the corners, and race your friends on the big screen.</p>
       <button className="primary" onClick={connect}>Create a race room <span>↗</span></button>
       <div className="features"><span>◉ Tilt steering</span><span>⌁ Multiplayer</span><span>ϟ Nitro pickups</span></div>
-      <div className="connect-note">Browser connects to <code>{WS}</code><br/>Each racer gets a third-person camera when the race starts.</div>
+      <div className="connect-note">Browser connects to <code>{WS}</code><br/>Each racer gets a hood-level first-person camera when the race starts.</div>
     </section>}
     {phase === 'lobby' && <section className="lobby">
       <div className="lobby-title"><div><div className="eyebrow">ROOM READY</div><h1>Get your crew<br/><em>on the grid.</em></h1></div><div className="room-pill"><small>ROOM CODE</small><strong>{room}</strong></div></div>
@@ -120,7 +120,7 @@ function App() {
             </div>; })}
           </div>
           <MiniMap players={hud.filter(player => player.id !== 'keyboard' || keyboardOn)}/>
-          <div className="three-caption"><span>WASD / arrows · Accelerate · Brake · Nitro · Jump</span><span>THIRD-PERSON SPLIT VIEW</span></div>
+          <div className="three-caption"><span>WASD / arrows · Accelerate · Brake · Nitro · Jump</span><span>HOOD CAM · SPLIT VIEW</span></div>
         </div>
         <div className="hud-list">{hud.map((player,i) => <div className="hud-item" key={player.id}><i style={{background:player.color || `#${PLAYER_COLORS[i % PLAYER_COLORS.length].toString(16)}`}}/><div className="hud-name"><b>{player.name}</b><small>{player.connected ? 'ONLINE' : 'OFFLINE'} · {player.latency ?? '—'} ms</small></div><div className="meter"><span style={{width:`${player.nitro}%`}}/></div><strong>{player.score} pts</strong></div>)}</div>
       </> : <div className="finish-panel"><div className="eyebrow">CHECKERED FLAG</div><h2>That’s the round.</h2>{[...hud].sort((a,b) => b.score-a.score).map((player,i) => <div className="finish-player" key={player.id}><b>#{i+1}　{player.name}</b><span>{player.score} pts</span></div>)}</div>}

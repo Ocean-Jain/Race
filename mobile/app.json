@@ -3,7 +3,7 @@
     "name": "TiltRace Controller",
     "slug": "tiltrace-controller",
     "version": "1.0.0",
-    "orientation": "portrait",
+    "orientation": "landscape",
     "userInterfaceStyle": "dark",
     "scheme": "tiltrace",
     "android": {
