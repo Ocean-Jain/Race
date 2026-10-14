@@ -1,0 +1,11 @@
+node_modules/
+web/dist/
+mobile/dist/
+mobile/mobile-export/
+mobile/node_modules/
+mobile/.expo/
+mobile/android/
+mobile/ios/
+*.apk
+.env
+.DS_Store

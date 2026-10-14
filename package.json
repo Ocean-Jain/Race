@@ -1,0 +1,12 @@
+{
+  "name": "tiltrace",
+  "private": true,
+  "version": "1.0.0",
+  "workspaces": ["server", "web", "mobile"],
+  "scripts": {
+    "dev": "concurrently -k -n server,web -c cyan,green \"npm run dev -w server\" \"npm run dev -w web\"",
+    "build": "npm run build -w web",
+    "start": "npm run start -w server"
+  },
+  "devDependencies": { "concurrently": "^9.1.2" }
+}
