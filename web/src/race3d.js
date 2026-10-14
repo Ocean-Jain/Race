@@ -293,9 +293,19 @@ export class Race3D {
     const numberTag = new THREE.Mesh(new THREE.PlaneGeometry(0.75, 0.38), new THREE.MeshBasicMaterial({ color: 0xf4f8fa }));
     numberTag.rotation.x = -Math.PI / 2; numberTag.position.set(0, 1.258, 0.48); group.add(numberTag);
     const labelCanvas = document.createElement('canvas'); labelCanvas.width = 256; labelCanvas.height = 48;
-    const ctx = labelCanvas.getContext('2d'); ctx.fillStyle = '#08131bdc'; ctx.beginPath(); ctx.roundRect(3, 3, 250, 42, 16); ctx.fill(); ctx.fillStyle = '#ffffff'; ctx.font = 'bold 22px Arial'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText(player.name.slice(0, 16).toUpperCase(), 128, 24);
+    const drawNameplate = name => {
+      const ctx = labelCanvas.getContext('2d');
+      ctx.clearRect(0, 0, labelCanvas.width, labelCanvas.height);
+      ctx.fillStyle = '#08131bdc'; ctx.beginPath(); ctx.roundRect(3, 3, 250, 42, 12); ctx.fill();
+      ctx.fillStyle = '#ffffff'; ctx.font = 'bold 22px Arial'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+      ctx.fillText(name.slice(0, 16).toUpperCase(), 128, 24);
+    };
+    drawNameplate(player.name);
     const labelTex = new THREE.CanvasTexture(labelCanvas); labelTex.colorSpace = THREE.SRGBColorSpace;
-    const label = new THREE.Sprite(new THREE.SpriteMaterial({ map: labelTex, transparent: true, depthTest: true, depthWrite: false })); label.position.set(0, 1.55, 2.05); label.scale.set(3.5, 0.66, 1); group.add(label);
+    // This is a small rear-facing badge physically attached to the back of the car,
+    // rather than a billboard floating above it.
+    const label = new THREE.Mesh(new THREE.PlaneGeometry(2.55, 0.48), new THREE.MeshBasicMaterial({ map: labelTex, transparent: true, depthTest: true, depthWrite: false, side: THREE.DoubleSide }));
+    label.position.set(0, 1.28, 2.24); group.add(label);
     this.scene.add(group);
 
     const theta = -0.07 - Math.floor(index / 2) * 0.09;
@@ -307,7 +317,7 @@ export class Race3D {
       ready: player.ready, connected: player.connected, latency: player.latency,
       driveStarted: false, jump: 0, boost: false, index, bodyMat, labelTex, label, frontWheels,
     };
-    group.position.set(car.x, 0, car.z); group.rotation.y = car.yaw;
+    group.position.set(car.x, 0, car.z); group.rotation.y = -car.yaw;
     this.cars.set(car.id, car);
     return car;
   }
@@ -323,7 +333,17 @@ export class Race3D {
         car = this.makeCar(player, index, color);
         usedColors.add(color);
       }
-      car.name = player.name; car.ready = player.ready; car.connected = player.connected;
+      if (car.name !== player.name) {
+        car.name = player.name;
+        const canvas = car.labelTex.image;
+        const ctx = canvas.getContext('2d');
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        ctx.fillStyle = '#08131bdc'; ctx.beginPath(); ctx.roundRect(3, 3, 250, 42, 12); ctx.fill();
+        ctx.fillStyle = '#ffffff'; ctx.font = 'bold 22px Arial'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+        ctx.fillText(car.name.slice(0, 16).toUpperCase(), 128, 24);
+        car.labelTex.needsUpdate = true;
+      }
+      car.ready = player.ready; car.connected = player.connected;
       car.latency = player.latency; if (Number.isFinite(player.nitro)) car.nitro = player.nitro;
     });
     this.resize();
@@ -388,7 +408,7 @@ export class Race3D {
     // and the front tires visibly steer into the corner instead of spinning the chassis in place.
     const steerAngle = steering * MAX_STEER_ANGLE;
     car.yaw += car.speed * Math.tan(steerAngle) / EFFECTIVE_WHEELBASE * seconds;
-    car.frontWheels.forEach(wheel => { wheel.rotation.y = steerAngle; });
+    car.frontWheels.forEach(wheel => { wheel.rotation.y = -steerAngle; });
     const previousX = car.x, previousZ = car.z;
     car.x += Math.sin(car.yaw) * car.speed * seconds;
     car.z -= Math.cos(car.yaw) * car.speed * seconds;
@@ -421,7 +441,7 @@ export class Race3D {
     if (input.jump && car.jump <= 0) car.jump = 0.72;
     car.jump = Math.max(0, car.jump - seconds);
     const bob = car.jump ? Math.sin((0.72 - car.jump) / 0.72 * Math.PI) * 2.2 : 0;
-    car.group.position.set(car.x, bob, car.z); car.group.rotation.y = car.yaw;
+    car.group.position.set(car.x, bob, car.z); car.group.rotation.y = -car.yaw;
     if (!car.jump) car.group.scale.set(1, 1, 1);
     else car.group.scale.set(1.05, 1.05, 1.05);
   }
