@@ -55,13 +55,13 @@ The server supports an optional comma-separated `ALLOWED_ORIGINS` environment va
 2. On the laptop, open the browser game and choose **Create a race room**. It displays a QR code and eight-character room code.
 3. In a terminal, run `cd mobile && npm install && npx expo start`. Open TiltRace Controller in Expo Go or install a development/release build. Rebuild/reinstall a native app after changing the Expo orientation setting so it takes effect on the phone.
 4. Scan the browser QR or enter `ws://LAPTOP-IP:3001` and the room code in the phone app. The QR encodes both server address and room. Scanning requires camera permission; code entry is always available.
-5. Hold the phone sideways in landscape, tap **Calibrate**, then tap **Ready to race**. The laptop host starts the round when racers are ready. Each additional phone repeats the join steps with the same room code.
+5. Scan and join while the phone is in portrait. After joining, it rotates to landscape; hold it like a steering wheel, tap **Calibrate**, and rotate it left/right to steer. Tap **Ready to race** to tell the browser you are ready. The laptop host starts the round when racers are ready.
 
 For local play, the laptop browser and phones must be able to reach each other over Wi-Fi. Open inbound TCP ports 5173 (web page) and 3001 (WebSocket) on the laptop's private network if the firewall asks. The QR is generated in the browser and is not uploaded to a service.
 
 ## Controls and round flow
 
-- Hold the phone in landscape and tilt left/right to steer; the neutral calibration button records the current lateral accelerometer axis as zero. Change steering sensitivity in the controller settings. A smoothing coefficient filters sensor noise.
+- Join in portrait; the controller locks to landscape after connecting. Rotate the phone left/right like a steering wheel to steer, then tap **Calibrate** to recenter. Steering uses the gyroscope with a small dead zone and smoothing. Change steering sensitivity in the controller settings.
 - Hold **Accelerate** to drive; hold **Brake** to slow down. On-screen feedback shows connection state and measured ping.
 - Shake the phone beyond the configurable threshold to trigger a short jump. A 1.4 second cooldown limits accidental retriggers.
 - Press **Nitro** to consume a server-issued boost charge. The glowing green pads along the track recharge up to 35 points each, subject to a server-side 1.5 second pickup cooldown. Haptics can be disabled in the controller.
@@ -113,4 +113,4 @@ iOS source/configuration is included. Run `npx expo run:ios` on macOS with Xcode
 
 No real phone or screen-recording facility was available in the build environment, so no recording is included. To record a demo, start the server and browser, join using a physical phone on the same Wi-Fi, start a screen recording on both phone and laptop, then show room pairing, calibration, steering, shake jump, nitro use and a recharge-pad pickup, latency, a reconnect, and a second phone joining.
 
-This is a compact arcade prototype rather than a full racing simulator. The browser host owns the 3D visual simulation, and a round uses a timer/scoreboard rather than lap timing. Sensor calibration uses the accelerometer's lateral axis; phone orientation and device-specific sensor conventions can affect steering direction. For an internet-hosted game, add room authentication, stricter server-authoritative physics, persistence, and production mobile signing.
+This is a compact arcade prototype rather than a full racing simulator. The browser host owns the 3D visual simulation, and a round uses a timer/scoreboard rather than lap timing. Gyroscope sensitivity and axis behavior vary by device; calibrate with the phone held in its landscape driving position. For an internet-hosted game, add room authentication, stricter server-authoritative physics, persistence, and production mobile signing.

@@ -3,7 +3,7 @@
     "name": "TiltRace Controller",
     "slug": "tiltrace-controller",
     "version": "1.0.0",
-    "orientation": "landscape",
+    "orientation": "default",
     "userInterfaceStyle": "dark",
     "scheme": "tiltrace",
     "android": {
@@ -23,6 +23,12 @@
       }
     },
     "plugins": [
+      [
+        "expo-screen-orientation",
+        {
+          "initialOrientation": "PORTRAIT"
+        }
+      ],
       [
         "expo-camera",
         {

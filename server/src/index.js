@@ -69,6 +69,7 @@ function onMessage(ws, raw) {
   if (m.type === 'pong' && context.role === 'player') { const p = room.players.get(context.playerId); if (p && Number.isFinite(Number(m.sentAt))) { p.latency = Math.max(0, Math.min(9999, Date.now() - Number(m.sentAt))); announce(room); } return; }
   if (context.role === 'browser') {
     if (m.type === 'start') { if (room.players.size < 1 && !m.keyboard) return send(ws, 'error', { message: 'At least one phone or keyboard racer is required.' }); room.phase = 'racing'; room.startedAt = Date.now(); announce(room); return; }
+    if (m.type === 'finish') { if (room.phase === 'racing') { room.phase = 'finished'; announce(room); } return; }
     if (m.type === 'restart') { room.phase = 'lobby'; room.startedAt = null; for (const p of room.players.values()) { p.ready = false; p.nitro = 100; p.score = 0; p.input = { steer: 0, throttle: 0, brake: false, jump: false, nitro: false }; } announce(room); return; }
     if (m.type === 'state' && Array.isArray(m.cars)) {
       // Browser submits only position/score claims. The server owns nitro and validates pickup zones.

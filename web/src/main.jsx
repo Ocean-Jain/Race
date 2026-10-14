@@ -25,6 +25,7 @@ function MiniMap({ players }) {
 
 function App() {
   const stageRef = useRef(null), gameRef = useRef(null), wsRef = useRef(null);
+  const finishedRef = useRef(false);
   const [room,setRoom] = useState(''), [players,setPlayers] = useState([]), [phase,setPhase] = useState('welcome');
   const [qr,setQr] = useState(''), [hud,setHud] = useState([]), [error,setError] = useState('');
   const [connected,setConnected] = useState(false), [timer,setTimer] = useState(0), [keyboardOn,setKeyboardOn] = useState(false);
@@ -45,7 +46,17 @@ function App() {
   useEffect(() => { if (phase === 'racing') gameRef.current?.setPlayers(racers); }, [phase, racers]);
   useEffect(() => {
     if (phase !== 'racing') return;
-    const id = setInterval(() => setTimer(value => { if (value + 1 >= 120) { setPhase('finished'); return 120; } return value + 1; }), 1000);
+    const id = setInterval(() => setTimer(value => {
+      if (value + 1 >= 120) {
+        if (!finishedRef.current) {
+          finishedRef.current = true;
+          window.sendRoom?.({ type:'finish' });
+          setPhase('finished');
+        }
+        return 120;
+      }
+      return value + 1;
+    }), 1000);
     return () => clearInterval(id);
   }, [phase]);
 
@@ -63,8 +74,9 @@ function App() {
       }
       if (message.type === 'room') {
         setPlayers(message.state.players);
-        if (message.state.phase === 'racing') setPhase('racing');
-        if (message.state.phase === 'lobby') setPhase('lobby');
+        if (message.state.phase === 'racing' && !finishedRef.current) setPhase('racing');
+        if (message.state.phase === 'finished') { finishedRef.current = true; setPhase('finished'); }
+        if (message.state.phase === 'lobby') { finishedRef.current = false; setPhase('lobby'); }
       }
       if (message.type === 'control') gameRef.current?.control(message.player);
       if (message.type === 'gameState') gameRef.current?.applyServerState(message.cars);
@@ -74,10 +86,11 @@ function App() {
   }
 
   function start() {
+    finishedRef.current = false;
     window.sendRoom?.({ type:'start', keyboard:keyboardOn });
     setTimer(0); setPhase('racing');
   }
-  function restart() { window.sendRoom?.({ type:'restart' }); setTimer(0); setPhase('lobby'); }
+  function restart() { finishedRef.current = false; window.sendRoom?.({ type:'restart' }); setTimer(0); setPhase('lobby'); }
   function addKeyboard() { setKeyboardOn(true); setError('Keyboard racer added: WASD or arrows to drive, Space for nitro, Shift to jump.'); }
 
   const hudById = new Map(hud.map(player => [player.id, player]));
