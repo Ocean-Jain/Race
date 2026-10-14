@@ -24,7 +24,7 @@ let phone = await open();
 let phone2;
 try {
   let received = waitFor(browser, m => m.type === 'created'); browser.send(JSON.stringify({ type: 'create' }));
-  const created = await received; assert.match(created.room, /^[0-9A-F]{6}$/);
+  const created = await received; assert.match(created.room, /^[0-9A-F]{8}$/);
   received = waitFor(phone, m => m.type === 'joined'); phone.send(JSON.stringify({ type: 'join', room: created.room, name: 'Smoke Racer' }));
   const joined = await received;
   received = waitFor(browser, m => m.type === 'room' && m.state.players.length === 1); await received;
@@ -35,7 +35,7 @@ try {
   received = waitFor(phone, m => m.type === 'nitro' && m.nitro === 75); phone.send(JSON.stringify({ type: 'input', input: { nitro: true } })); await received;
   phone.send(JSON.stringify({ type: 'input', input: { nitro: false } }));
   received = waitFor(phone, m => m.type === 'recharge' && m.nitro === 100);
-  browser.send(JSON.stringify({ type: 'state', cars: [{ id: joined.playerId, x: 180, y: 180, score: 10 }] })); await received;
+  browser.send(JSON.stringify({ type: 'state', cars: [{ id: joined.playerId, x: 600, y: 180, score: 10 }] })); await received;
   received = waitFor(phone, m => m.type === 'pong'); phone.send(JSON.stringify({ type: 'ping', id: 'smoke', sentAt: Date.now() })); await received;
   received = waitFor(browser, m => m.type === 'room' && m.state.phase === 'racing'); browser.send(JSON.stringify({ type: 'start' })); await received;
   received = waitFor(browser, m => m.type === 'room' && m.state.phase === 'lobby'); browser.send(JSON.stringify({ type: 'restart' })); await received;

@@ -54,9 +54,6 @@ importers:
 
   web:
     dependencies:
-      phaser:
-        specifier: ^3.90.0
-        version: 3.90.0
       qrcode:
         specifier: ^1.5.4
         version: 1.5.4
@@ -66,6 +63,9 @@ importers:
       react-dom:
         specifier: ^18.3.1
         version: 18.3.1(react@18.3.1)
+      three:
+        specifier: ^0.186.0
+        version: 0.186.0
     devDependencies:
       '@vitejs/plugin-react':
         specifier: ^4.3.4
@@ -2132,6 +2132,9 @@ packages:
 
   phaser@3.90.0:
     resolution: {integrity: sha512-/cziz/5ZIn02uDkC9RzN8VF9x3Gs3XdFFf9nkiMEQT3p7hQlWuyjy4QWosU802qqno2YSLn2BfqwOKLv/sSVfQ==}
+
+  three@0.186.0:
+    resolution: {tarball: https://registry.npmjs.org/three/-/three-0.186.0.tgz}
 
   picocolors@1.1.1:
     resolution: {integrity: sha512-xceH2snhtb5M9liqDsmEw56le376mTZkEX/jEb/RxNFyegNul7eNslCXP9FDj/Lcu0X8KEyMceP2ntpaHrDEVA==}
@@ -5138,6 +5141,8 @@ snapshots:
   phaser@3.90.0:
     dependencies:
       eventemitter3: 5.0.4
+
+  three@0.186.0: {}
 
   picocolors@1.1.1: {}
 

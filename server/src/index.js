@@ -68,7 +68,7 @@ function onMessage(ws, raw) {
   if (m.type === 'ping') return send(ws, 'pong', { id: m.id, sentAt: m.sentAt, serverAt: Date.now() });
   if (m.type === 'pong' && context.role === 'player') { const p = room.players.get(context.playerId); if (p && Number.isFinite(Number(m.sentAt))) { p.latency = Math.max(0, Math.min(9999, Date.now() - Number(m.sentAt))); announce(room); } return; }
   if (context.role === 'browser') {
-    if (m.type === 'start') { if (room.players.size < 1) return send(ws, 'error', { message: 'At least one phone must join.' }); room.phase = 'racing'; room.startedAt = Date.now(); announce(room); return; }
+    if (m.type === 'start') { if (room.players.size < 1 && !m.keyboard) return send(ws, 'error', { message: 'At least one phone or keyboard racer is required.' }); room.phase = 'racing'; room.startedAt = Date.now(); announce(room); return; }
     if (m.type === 'restart') { room.phase = 'lobby'; room.startedAt = null; for (const p of room.players.values()) { p.ready = false; p.nitro = 100; p.score = 0; p.input = { steer: 0, throttle: 0, brake: false, jump: false, nitro: false }; } announce(room); return; }
     if (m.type === 'state' && Array.isArray(m.cars)) {
       // Browser submits only position/score claims. The server owns nitro and validates pickup zones.
@@ -77,7 +77,7 @@ function onMessage(ws, raw) {
       for (const claim of m.cars.slice(0, 8)) {
         const p = room.players.get(claim.id); if (!p) continue;
         const x = Number(claim.x), y = Number(claim.y); if (!Number.isFinite(x) || !Number.isFinite(y) || Math.abs(x) > 3000 || Math.abs(y) > 3000) continue;
-        const pickup = [ [180,180], [760,180], [1080,470], [750,780], [160,720] ].some(([px,py]) => Math.hypot(x-px,y-py) < 48);
+        const pickup = [ [600,180], [876,380], [770,705], [430,705], [324,380] ].some(([px,py]) => Math.hypot(x-px,y-py) < 48);
         if (pickup && now - (p.lastPickup || 0) > 1500) { p.nitro = Math.min(100, p.nitro + 35); p.lastPickup = now; send(p.ws, 'recharge', { nitro: p.nitro }); }
         p.score = Math.max(0, Math.min(999999, Number(claim.score) || 0));
         cars.push({ id: p.id, x, y, angle: Number(claim.angle) || 0, score: p.score, nitro: p.nitro });
