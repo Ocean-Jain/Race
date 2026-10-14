@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 # TiltRace
 
 TiltRace is a small multiplayer arcade racer. A browser runs the race and creates a room; phones join as motion controllers over the WebSocket server. Deploy it publicly to let players join from different Wi-Fi networks or cellular data.
@@ -114,3 +115,6 @@ iOS source/configuration is included. Run `npx expo run:ios` on macOS with Xcode
 No real phone or screen-recording facility was available in the build environment, so no recording is included. To record a demo, start the server and browser, join using a physical phone on the same Wi-Fi, start a screen recording on both phone and laptop, then show room pairing, calibration, steering, shake jump, nitro use and a recharge-pad pickup, latency, a reconnect, and a second phone joining.
 
 This is a compact arcade prototype rather than a full 3D racing simulation. The track and car physics are intentionally simple, the browser host owns the visual simulation, and a round uses a timer/scoreboard rather than lap timing. Sensor calibration uses the accelerometer's lateral axis; phone orientation and device-specific sensor conventions can affect steering direction. For an internet-hosted game, add room authentication, TLS, stricter server-authoritative physics, persistence, and production mobile signing.
+=======
+# Race
+>>>>>>> e56c22a648711ff394b84705c43f5d8ccd1cc011
