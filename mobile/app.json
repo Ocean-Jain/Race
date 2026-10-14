@@ -6,8 +6,41 @@
     "orientation": "portrait",
     "userInterfaceStyle": "dark",
     "scheme": "tiltrace",
-    "android": { "package": "com.tiltrace.controller", "usesCleartextTraffic": true, "permissions": ["VIBRATE", "CAMERA"] },
-    "ios": { "bundleIdentifier": "com.tiltrace.controller", "infoPlist": { "NSMotionUsageDescription": "TiltRace uses motion sensors to steer your race car.", "NSCameraUsageDescription": "Scan the race room QR code to connect." } },
-    "plugins": [["expo-camera", { "cameraPermission": "Allow TiltRace to scan the room QR code.", "recordAudioAndroid": false }], ["expo-sensors", { "motionPermission": "Allow TiltRace to use motion controls." }]]
+    "android": {
+      "package": "com.tiltrace.controller",
+      "usesCleartextTraffic": true,
+      "permissions": [
+        "VIBRATE",
+        "CAMERA",
+        "android.permission.CAMERA"
+      ]
+    },
+    "ios": {
+      "bundleIdentifier": "com.tiltrace.controller",
+      "infoPlist": {
+        "NSMotionUsageDescription": "TiltRace uses motion sensors to steer your race car.",
+        "NSCameraUsageDescription": "Scan the race room QR code to connect."
+      }
+    },
+    "plugins": [
+      [
+        "expo-camera",
+        {
+          "cameraPermission": "Allow TiltRace to scan the room QR code.",
+          "recordAudioAndroid": false
+        }
+      ],
+      [
+        "expo-sensors",
+        {
+          "motionPermission": "Allow TiltRace to use motion controls."
+        }
+      ]
+    ],
+    "extra": {
+      "eas": {
+        "projectId": "98c7977c-7fd7-4ce9-838d-57244aa2543a"
+      }
+    }
   }
 }
