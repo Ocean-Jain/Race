@@ -7,6 +7,8 @@ const INNER_EDGE = 222;
 const OUTER_EDGE = 358;
 const PICKUP_ANGLES = [0, Math.PI * 0.4, Math.PI * 0.8, Math.PI * 1.2, Math.PI * 1.6];
 const OBSTACLE_ANGLES = [0.72, 2.15, 3.58, 5.05];
+const TWO_PI = Math.PI * 2;
+const wrappedAngleDelta = (from, to) => Math.atan2(Math.sin(to - from), Math.cos(to - from));
 
 export function viewColumns(count) {
   if (count <= 3) return Math.max(1, count);
@@ -282,8 +284,9 @@ export class Race3D {
     const car = {
       id: player.id, name: player.name, color, group, x: Math.sin(theta) * radius,
       z: -Math.cos(theta) * radius, yaw: theta + Math.PI / 2, speed: 0, nitro: player.nitro ?? 100,
-      score: 0, ready: player.ready, connected: player.connected, latency: player.latency,
-      jump: 0, boost: false, index, bodyMat, labelTex, cameraPosition: null,
+      score: 0, laps: 0, lapProgress: 0, lastTrackAngle: theta,
+      ready: player.ready, connected: player.connected, latency: player.latency,
+      driveStarted: false, jump: 0, boost: false, index, bodyMat, labelTex, cameraPosition: null,
     };
     group.position.set(car.x, 0, car.z); group.rotation.y = car.yaw;
     this.cars.set(car.id, car);
@@ -338,6 +341,19 @@ export class Race3D {
       input = sample && performance.now() - sample.receivedAt < 320 ? sample.input : { steer: 0, throttle: 0, brake: false, jump: false, nitro: false };
     }
     const seconds = Math.min(dt / 1000, 0.04);
+    const firstThrottleFrame = !car.driveStarted && input.throttle > 0;
+    if (input.throttle > 0) car.driveStarted = true;
+    const trackHeading = Math.atan2(car.x, -car.z) + Math.PI / 2;
+    if (!car.driveStarted || firstThrottleFrame) {
+      // Ignore tilt until the driver launches and keep the nose tangent to the circuit.
+      car.yaw = trackHeading;
+    }
+    const trackAssist = car.driveStarted && !firstThrottleFrame
+      ? THREE.MathUtils.clamp(wrappedAngleDelta(car.yaw, trackHeading) * 22, -0.35, 0.35)
+      : 0;
+    const steering = car.driveStarted && !firstThrottleFrame
+      ? THREE.MathUtils.clamp(input.steer + trackAssist, -1, 1)
+      : 0;
     const boosting = input.nitro && input.throttle > 0 && car.nitro > 0;
     if (input.throttle > 0 && !input.brake) {
       // A gentler throttle ramp keeps acceleration controllable on the small track.
@@ -349,7 +365,8 @@ export class Race3D {
     }
     car.speed = THREE.MathUtils.clamp(car.speed, 0, boosting ? 150 : 112);
     if (boosting) car.nitro = Math.max(0, car.nitro - 28 * seconds);
-    car.yaw += input.steer * seconds * (0.45 + Math.min(Math.abs(car.speed) / 85, 1.15)) * Math.sign(car.speed || 1);
+    car.yaw += steering * seconds * (0.45 + Math.min(Math.abs(car.speed) / 85, 1.15));
+    const previousX = car.x, previousZ = car.z;
     car.x += Math.sin(car.yaw) * car.speed * seconds;
     car.z -= Math.cos(car.yaw) * car.speed * seconds;
     const radius = Math.hypot(car.x, car.z);
@@ -359,13 +376,28 @@ export class Race3D {
       car.x *= scale; car.z *= scale; car.speed *= 0.16;
     }
     for (const obstacle of this.obstacles) if (Math.hypot(car.x - obstacle.x, car.z - obstacle.z) < 8) car.speed *= 0.28;
+    const moveX = car.x - previousX, moveZ = car.z - previousZ;
+    if (Math.hypot(moveX, moveZ) > 0.0001) car.yaw = Math.atan2(moveX, -moveZ);
+    const trackAngle = Math.atan2(car.x, -car.z);
+    const trackRadius = Math.hypot(car.x, car.z);
+    const angleDelta = wrappedAngleDelta(car.lastTrackAngle, trackAngle);
+    if (trackRadius >= INNER_EDGE + 4 && trackRadius <= OUTER_EDGE - 4 && car.speed > 3 && angleDelta > 0) {
+      car.lapProgress += angleDelta;
+      if (car.lapProgress >= TWO_PI) {
+        const completedLaps = Math.floor(car.lapProgress / TWO_PI);
+        car.lapProgress %= TWO_PI;
+        car.laps += completedLaps;
+        car.score += completedLaps * 2;
+      }
+    }
+    car.lastTrackAngle = trackAngle;
     if (input.jump && car.jump <= 0) car.jump = 0.72;
     car.jump = Math.max(0, car.jump - seconds);
     const bob = car.jump ? Math.sin((0.72 - car.jump) / 0.72 * Math.PI) * 2.2 : 0;
     car.group.position.set(car.x, bob, car.z); car.group.rotation.y = car.yaw;
     if (!car.jump) car.group.scale.set(1, 1, 1);
     else car.group.scale.set(1.05, 1.05, 1.05);
-    car.score = Math.max(0, Math.floor(car.score + Math.max(car.speed, 0) * seconds / 12));
+    car.score = Math.max(0, car.score + Math.max(car.speed, 0) * seconds / 12);
   }
 
   updatePickups(dt) {
@@ -422,12 +454,12 @@ export class Race3D {
     this.renderViews();
     if (now - this.lastSend > 60) {
       this.lastSend = now;
-      const cars = [...this.cars.values()].filter(car => car.id !== 'keyboard').map(car => ({ id: car.id, x: car.x + CENTER, y: car.z + 470, angle: car.yaw, score: car.score }));
+      const cars = [...this.cars.values()].filter(car => car.id !== 'keyboard').map(car => ({ id: car.id, x: car.x + CENTER, y: car.z + 470, angle: car.yaw, score: Math.floor(car.score) }));
       if (cars.length) window.sendRoom?.({ type: 'state', cars });
     }
     if (now - this.lastHud > 100) {
       this.lastHud = now;
-      window.dispatchEvent(new CustomEvent('hud', { detail: [...this.cars.values()].map(car => ({ id: car.id, name: car.name, nitro: car.nitro, score: car.score, latency: car.latency, connected: car.connected, x: car.x, z: car.z, yaw: car.yaw, speed: Math.round(Math.abs(car.speed) * 0.72), color: `#${car.color.toString(16).padStart(6, '0')}` })) }));
+      window.dispatchEvent(new CustomEvent('hud', { detail: [...this.cars.values()].map(car => ({ id: car.id, name: car.name, nitro: car.nitro, score: Math.floor(car.score), laps: car.laps, latency: car.latency, connected: car.connected, x: car.x, z: car.z, yaw: car.yaw, speed: Math.round(Math.abs(car.speed) * 0.72), color: `#${car.color.toString(16).padStart(6, '0')}` })) }));
     }
     this.frame = requestAnimationFrame(this.animate);
   }

@@ -43,38 +43,6 @@ function Dashboard({ player }) {
   </div>;
 }
 
-function PointerCar() {
-  const carRef = useRef(null);
-  useEffect(() => {
-    const element = carRef.current;
-    if (!element || !window.matchMedia('(pointer: fine)').matches) return;
-    let targetX = window.innerWidth * 0.5, targetY = window.innerHeight * 0.5;
-    let x = targetX, y = targetY, frame = 0;
-    const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-    const move = event => { targetX = event.clientX; targetY = event.clientY; };
-    const animate = () => {
-      if (reducedMotion) { x = targetX; y = targetY; }
-      else { x += (targetX - x) * 0.2; y += (targetY - y) * 0.2; }
-      element.style.transform = `translate3d(${x - 120}px, ${y - 48}px, 0)`;
-      frame = requestAnimationFrame(animate);
-    };
-    window.addEventListener('pointermove', move, { passive:true });
-    frame = requestAnimationFrame(animate);
-    return () => { window.removeEventListener('pointermove', move); cancelAnimationFrame(frame); };
-  }, []);
-  return <svg ref={carRef} className="pointer-car" viewBox="0 0 240 96" aria-hidden="true">
-    <g fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinejoin="round" strokeLinecap="round">
-      <path d="M15 66 21 59Q24 55 39 52l27-5 19-20q5-5 15-6h44q12 0 20 9l14 16 28 6q12 2 17 8l4 8v8h-15a17 17 0 0 0-34 0H62a17 17 0 0 0-34 0H14z"/>
-      <path d="m73 46 17-17q3-3 10-3h18v20zm52-20h18q7 0 12 6l12 14h-42z"/>
-      <path d="M119 27v20M67 50l-1 16m127-16 2 16M17 64h12m178 0h13"/>
-      <circle cx="45" cy="74" r="12"/><circle cx="45" cy="74" r="5"/>
-      <circle cx="175" cy="74" r="12"/><circle cx="175" cy="74" r="5"/>
-      <path d="m218 57 5 2v6h-6m-194-8-7 3v6h7"/>
-      <path d="M100 53h15m-7-4v25m42-21h14" opacity=".55"/>
-    </g>
-  </svg>;
-}
-
 function App() {
   const stageRef = useRef(null), gameRef = useRef(null), wsRef = useRef(null);
   const finishedRef = useRef(false);
@@ -148,8 +116,9 @@ function App() {
   const hudById = new Map(hud.map(player => [player.id, player]));
   const columns = viewColumns(Math.max(1, racers.length));
   const clock = phase === 'finished' ? 0 : 120 - timer;
+  const finalResults = [...hud].sort((a, b) => b.score - a.score || (b.laps || 0) - (a.laps || 0) || a.name.localeCompare(b.name));
 
-  return <><PointerCar/><main className="shell">
+  return <main className="shell">
     <header className="top">
       <a className="brand" href="#"><span className="logo">T</span><span>TILT<span className="accent">RACE</span></span></a>
       <span className={`server ${connected ? 'online' : ''}`}><i/>{connected ? 'SERVER CONNECTED' : 'SERVER OFFLINE'}</span>
@@ -181,7 +150,7 @@ function App() {
           <div className="race-panels" style={{ '--view-columns':columns }}>
             {racers.map(player => { const live = hudById.get(player.id); return <div className="race-player-cell" key={player.id}>
               <div className="cell-name"><i style={{background:live?.color || player.color}}/><span>{live?.name || player.name}</span></div>
-              <div className="cell-stats"><b>{live?.speed ?? 0}<small> km/h</small></b><span>{live?.score ?? 0} pts</span><div className="cell-meter"><i style={{width:`${live?.nitro ?? player.nitro ?? 100}%`}}/></div></div>
+              <div className="cell-stats"><b>{live?.speed ?? 0}<small> km/h</small></b><span>{live?.score ?? 0} pts · {live?.laps ?? 0} laps</span><div className="cell-meter"><i style={{width:`${live?.nitro ?? player.nitro ?? 100}%`}}/></div></div>
               <Dashboard player={live}/>
             </div>; })}
           </div>
@@ -189,11 +158,11 @@ function App() {
           <div className="three-caption"><span>WASD / arrows · Accelerate · Brake · Nitro · Jump</span><span>CHASE CAM · SPLIT VIEW</span></div>
         </div>
         <div className="hud-list">{hud.map((player,i) => <div className="hud-item" key={player.id}><i style={{background:player.color || `#${PLAYER_COLORS[i % PLAYER_COLORS.length].toString(16)}`}}/><div className="hud-name"><b>{player.name}</b><small>{player.connected ? 'ONLINE' : 'OFFLINE'} · {player.latency ?? '—'} ms</small></div><div className="meter"><span style={{width:`${player.nitro}%`}}/></div><strong>{player.score} pts</strong></div>)}</div>
-      </> : <div className="finish-panel"><div className="eyebrow">CHECKERED FLAG</div><h2>That’s the round.</h2>{[...hud].sort((a,b) => b.score-a.score).map((player,i) => <div className="finish-player" key={player.id}><b>#{i+1}　{player.name}</b><span>{player.score} pts</span></div>)}</div>}
+      </> : <div className="finish-panel"><div className="eyebrow">CHECKERED FLAG · RANKED BY POINTS</div><h2>That’s the round.</h2>{finalResults.map((player,i) => <div className="finish-player" key={player.id}><b>#{i+1}　{player.name}<small>{player.laps || 0} {player.laps === 1 ? 'lap' : 'laps'}</small></b><span>{player.score} pts</span></div>)}</div>}
     </section>}
     {error && <div role="status" className="toast" onClick={() => setError('')}>{error}<button aria-label="Dismiss">×</button></div>}
     <footer><span>TILT<span className="accent">RACE</span> <small>ONE TRACK, EVERY RACER.</small></span><span>ONE LAP AT A TIME</span></footer>
-  </main></>;
+  </main>;
 }
 
 createRoot(document.getElementById('root')).render(<App/>);
