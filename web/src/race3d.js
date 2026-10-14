@@ -80,7 +80,7 @@ export class Race3D {
     this.scene = new THREE.Scene();
     this.scene.background = new THREE.Color('#91a8b4');
     this.scene.fog = new THREE.Fog('#91a8b4', 520, 1150);
-    this.camera = new THREE.PerspectiveCamera(78, 1, 0.1, 1600);
+    this.camera = new THREE.PerspectiveCamera(72, 1, 0.1, 1600);
     this.renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: 'high-performance' });
     this.renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 1.5));
     this.renderer.setSize(container.clientWidth, container.clientHeight, false);
@@ -213,8 +213,7 @@ export class Race3D {
     });
   }
 
-  makeCar(player, index) {
-    const color = COLORS[index % COLORS.length];
+  makeCar(player, index, color = COLORS[index % COLORS.length]) {
     const group = new THREE.Group();
     const bodyMat = carMaterial(color, { metalness: 0.65, roughness: 0.24 });
     const darkMat = carMaterial(0x111820, { metalness: 0.25, roughness: 0.42 });
@@ -228,7 +227,12 @@ export class Race3D {
     shadow.rotation.x = -Math.PI / 2; shadow.position.y = 0.035; group.add(shadow);
     addBox(new THREE.BoxGeometry(2.05, 0.52, 4.45), darkMat, 0, 0.78, 0);
     addBox(new THREE.BoxGeometry(1.92, 0.44, 3.88), bodyMat, 0, 1.02, 0.05);
-    const roof = new THREE.Mesh(new THREE.BoxGeometry(1.52, 0.62, 1.92), glassMat); roof.position.set(0, 1.47, 0.28); group.add(roof);
+    addBox(new THREE.BoxGeometry(1.88, 0.2, 1.15), bodyMat, 0, 1.22, -1.38);
+    addBox(new THREE.BoxGeometry(1.84, 0.22, 0.86), bodyMat, 0, 1.2, 1.52);
+    const roof = new THREE.Mesh(new THREE.BoxGeometry(1.5, 0.52, 1.72), glassMat); roof.position.set(0, 1.53, 0.2); group.add(roof);
+    addBox(new THREE.BoxGeometry(1.46, 0.14, 0.86), bodyMat, 0, 1.84, 0.25);
+    addBox(new THREE.BoxGeometry(0.76, 0.27, 0.08), darkMat, 0, 0.91, -2.12);
+    for (const x of [-0.22, 0, 0.22]) addBox(new THREE.BoxGeometry(0.045, 0.23, 0.035), chrome, x, 0.91, -2.17);
     // Seated racer, visible through the glass from the other players' cameras.
     const driverSuit = carMaterial(color, { metalness: 0.12, roughness: 0.72 });
     const helmetMat = carMaterial(0xf4f4e9, { metalness: 0.2, roughness: 0.3 });
@@ -249,9 +253,7 @@ export class Race3D {
       const glove = new THREE.Mesh(new THREE.SphereGeometry(0.12, 10, 8), darkMat); glove.position.copy(end); group.add(glove);
     };
     addArm(-1); addArm(1);
-    addBox(new THREE.BoxGeometry(1.82, 0.2, 1.12), bodyMat, 0, 1.18, -1.28);
-    addBox(new THREE.BoxGeometry(1.7, 0.2, 0.9), bodyMat, 0, 1.16, 1.48);
-    addBox(new THREE.BoxGeometry(2.26, 0.12, 0.2), darkMat, 0, 1.45, 1.97);
+    addBox(new THREE.BoxGeometry(1.86, 0.12, 0.16), chrome, 0, 0.9, 2.22);
     for (const side of [-1, 1]) {
       const wheel = new THREE.Mesh(new THREE.CylinderGeometry(0.48, 0.48, 0.34, 20), darkMat);
       wheel.rotation.z = Math.PI / 2; wheel.position.set(side * 1.02, 0.57, -1.35); group.add(wheel);
@@ -281,7 +283,7 @@ export class Race3D {
       id: player.id, name: player.name, color, group, x: Math.sin(theta) * radius,
       z: -Math.cos(theta) * radius, yaw: theta + Math.PI / 2, speed: 0, nitro: player.nitro ?? 100,
       score: 0, ready: player.ready, connected: player.connected, latency: player.latency,
-      jump: 0, boost: false, index, bodyMat, labelTex,
+      jump: 0, boost: false, index, bodyMat, labelTex, cameraPosition: null,
     };
     group.position.set(car.x, 0, car.z); group.rotation.y = car.yaw;
     this.cars.set(car.id, car);
@@ -291,9 +293,14 @@ export class Race3D {
   setPlayers(players) {
     const wanted = new Set(players.map(p => p.id));
     for (const [id, car] of this.cars) if (!wanted.has(id)) { this.scene.remove(car.group); this.cars.delete(id); }
+    const usedColors = new Set([...this.cars.values()].map(car => car.color));
     players.forEach((player, index) => {
       let car = this.cars.get(player.id);
-      if (!car) car = this.makeCar(player, index);
+      if (!car) {
+        const color = COLORS.find(candidate => !usedColors.has(candidate)) ?? COLORS[index % COLORS.length];
+        car = this.makeCar(player, index, color);
+        usedColors.add(color);
+      }
       car.name = player.name; car.ready = player.ready; car.connected = player.connected;
       car.latency = player.latency; if (Number.isFinite(player.nitro)) car.nitro = player.nitro;
     });
@@ -395,13 +402,15 @@ export class Race3D {
       const bottom = height - top - h;
       this.camera.aspect = w / h; this.camera.updateProjectionMatrix();
       const forwardX = Math.sin(car.yaw), forwardZ = -Math.cos(car.yaw);
-      this.camera.position.set(car.x + forwardX * 1.4, 2.0 + car.jump * 0.25, car.z + forwardZ * 1.4);
-      this.camera.lookAt(car.x + forwardX * 40, 1.6 + car.jump * 0.3, car.z + forwardZ * 40);
+      const chaseDistance = 8.6 + Math.min(car.speed * 0.018, 2.2);
+      const chaseTarget = new THREE.Vector3(car.x - forwardX * chaseDistance, 4.3 + Math.min(car.speed * 0.006, 0.6) + car.jump * 0.25, car.z - forwardZ * chaseDistance);
+      if (!car.cameraPosition) car.cameraPosition = chaseTarget.clone();
+      else car.cameraPosition.lerp(chaseTarget, 0.18);
+      this.camera.position.copy(car.cameraPosition);
+      this.camera.lookAt(car.x + forwardX * 7.5, 1.15 + car.jump * 0.25, car.z + forwardZ * 7.5);
       this.renderer.setViewport(left, bottom, w, h);
       this.renderer.setScissor(left, bottom, w, h);
-      car.group.visible = false;
-      try { this.renderer.render(this.scene, this.camera); }
-      finally { car.group.visible = true; }
+      this.renderer.render(this.scene, this.camera);
     });
   }
 

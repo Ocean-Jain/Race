@@ -43,6 +43,38 @@ function Dashboard({ player }) {
   </div>;
 }
 
+function PointerCar() {
+  const carRef = useRef(null);
+  useEffect(() => {
+    const element = carRef.current;
+    if (!element || !window.matchMedia('(pointer: fine)').matches) return;
+    let targetX = window.innerWidth * 0.5, targetY = window.innerHeight * 0.5;
+    let x = targetX, y = targetY, frame = 0;
+    const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    const move = event => { targetX = event.clientX; targetY = event.clientY; };
+    const animate = () => {
+      if (reducedMotion) { x = targetX; y = targetY; }
+      else { x += (targetX - x) * 0.2; y += (targetY - y) * 0.2; }
+      element.style.transform = `translate3d(${x - 120}px, ${y - 48}px, 0)`;
+      frame = requestAnimationFrame(animate);
+    };
+    window.addEventListener('pointermove', move, { passive:true });
+    frame = requestAnimationFrame(animate);
+    return () => { window.removeEventListener('pointermove', move); cancelAnimationFrame(frame); };
+  }, []);
+  return <svg ref={carRef} className="pointer-car" viewBox="0 0 240 96" aria-hidden="true">
+    <g fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinejoin="round" strokeLinecap="round">
+      <path d="M15 66 21 59Q24 55 39 52l27-5 19-20q5-5 15-6h44q12 0 20 9l14 16 28 6q12 2 17 8l4 8v8h-15a17 17 0 0 0-34 0H62a17 17 0 0 0-34 0H14z"/>
+      <path d="m73 46 17-17q3-3 10-3h18v20zm52-20h18q7 0 12 6l12 14h-42z"/>
+      <path d="M119 27v20M67 50l-1 16m127-16 2 16M17 64h12m178 0h13"/>
+      <circle cx="45" cy="74" r="12"/><circle cx="45" cy="74" r="5"/>
+      <circle cx="175" cy="74" r="12"/><circle cx="175" cy="74" r="5"/>
+      <path d="m218 57 5 2v6h-6m-194-8-7 3v6h7"/>
+      <path d="M100 53h15m-7-4v25m42-21h14" opacity=".55"/>
+    </g>
+  </svg>;
+}
+
 function App() {
   const stageRef = useRef(null), gameRef = useRef(null), wsRef = useRef(null);
   const finishedRef = useRef(false);
@@ -117,7 +149,7 @@ function App() {
   const columns = viewColumns(Math.max(1, racers.length));
   const clock = phase === 'finished' ? 0 : 120 - timer;
 
-  return <main className="shell">
+  return <><PointerCar/><main className="shell">
     <header className="top">
       <a className="brand" href="#"><span className="logo">T</span><span>TILT<span className="accent">RACE</span></span></a>
       <span className={`server ${connected ? 'online' : ''}`}><i/>{connected ? 'SERVER CONNECTED' : 'SERVER OFFLINE'}</span>
@@ -128,7 +160,7 @@ function App() {
       <p>Turn your phone into a steering wheel. Join the room, lean into the corners, and race your friends on the big screen.</p>
       <button className="primary" onClick={connect}>Create a race room <span>↗</span></button>
       <div className="features"><span>◉ Tilt steering</span><span>⌁ Multiplayer</span><span>ϟ Nitro pickups</span></div>
-      <div className="connect-note">Browser connects to <code>{WS}</code><br/>Each racer gets a first-person cockpit view and dashboard when the race starts.</div>
+      <div className="connect-note">Browser connects to <code>{WS}</code><br/>Each racer gets a horizon-forward chase camera, their own color, and a live dashboard.</div>
     </section>}
     {phase === 'lobby' && <section className="lobby">
       <div className="lobby-title"><div><div className="eyebrow">ROOM READY</div><h1>Get your crew<br/><em>on the grid.</em></h1></div><div className="room-pill"><small>ROOM CODE</small><strong>{room}</strong></div></div>
@@ -154,14 +186,14 @@ function App() {
             </div>; })}
           </div>
           <MiniMap players={hud.filter(player => player.id !== 'keyboard' || keyboardOn)}/>
-          <div className="three-caption"><span>WASD / arrows · Accelerate · Brake · Nitro · Jump</span><span>COCKPIT CAM · SPLIT VIEW</span></div>
+          <div className="three-caption"><span>WASD / arrows · Accelerate · Brake · Nitro · Jump</span><span>CHASE CAM · SPLIT VIEW</span></div>
         </div>
         <div className="hud-list">{hud.map((player,i) => <div className="hud-item" key={player.id}><i style={{background:player.color || `#${PLAYER_COLORS[i % PLAYER_COLORS.length].toString(16)}`}}/><div className="hud-name"><b>{player.name}</b><small>{player.connected ? 'ONLINE' : 'OFFLINE'} · {player.latency ?? '—'} ms</small></div><div className="meter"><span style={{width:`${player.nitro}%`}}/></div><strong>{player.score} pts</strong></div>)}</div>
       </> : <div className="finish-panel"><div className="eyebrow">CHECKERED FLAG</div><h2>That’s the round.</h2>{[...hud].sort((a,b) => b.score-a.score).map((player,i) => <div className="finish-player" key={player.id}><b>#{i+1}　{player.name}</b><span>{player.score} pts</span></div>)}</div>}
     </section>}
     {error && <div role="status" className="toast" onClick={() => setError('')}>{error}<button aria-label="Dismiss">×</button></div>}
     <footer><span>TILT<span className="accent">RACE</span> <small>ONE TRACK, EVERY RACER.</small></span><span>ONE LAP AT A TIME</span></footer>
-  </main>;
+  </main></>;
 }
 
 createRoot(document.getElementById('root')).render(<App/>);
