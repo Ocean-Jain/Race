@@ -17,7 +17,7 @@ function MiniMap({ players }) {
       <path d={figureEight} className="map-track-dash"/>
       <path d="M18 74h20v12H18z M182 74h20v12h-20z" className="map-finish"/>
       {players.map(player => <g key={player.id} transform={`translate(${110 + player.x * .24} ${80 + player.z * .25}) rotate(${player.yaw * 180 / Math.PI})`}>
-        <path d="M0 -6 L3.5 4 L0 2 L-3.5 4 Z" fill={player.color || '#ffffff'} stroke="#06131b" strokeWidth="1.2"/>
+        <path d="M0 -8 L4.5 5 L0 2.5 L-4.5 5 Z" fill={player.color || '#ffffff'} stroke="#06131b" strokeWidth="1.2"/>
       </g>)}
     </svg>
     <div className="minimap-legend">N <span>● racers</span></div>
