@@ -7,6 +7,8 @@ const TRACK_B = 210;
 const ROAD_HALF_WIDTH = 58;
 const TRACK_START_T = -Math.PI / 2;
 const CHECKPOINT_PROGRESS = Math.PI;
+const BRIDGE_HEIGHT = 12;
+const BRIDGE_RAMP_SPAN = 0.3;
 const MAX_STEER_ANGLE = 0.46;
 const EFFECTIVE_WHEELBASE = 34;
 const TWO_PI = Math.PI * 2;
@@ -23,17 +25,24 @@ function trackPoint(t) {
   return { x: TRACK_A * Math.sin(t), z: TRACK_B * Math.sin(2 * t) };
 }
 
+function trackHeight(t) {
+  const distance = Math.abs(wrappedAngleDelta(0, t));
+  if (distance >= BRIDGE_RAMP_SPAN) return 0;
+  const ramp = 1 - distance / BRIDGE_RAMP_SPAN;
+  return BRIDGE_HEIGHT * ramp * ramp * (3 - 2 * ramp);
+}
+
 function trackFrame(t) {
   const point = trackPoint(t);
   const dx = TRACK_A * Math.cos(t), dz = TRACK_B * 2 * Math.cos(2 * t);
   const length = Math.hypot(dx, dz) || 1;
   const tangent = { x: dx / length, z: dz / length };
-  return { point, tangent, normal: { x: -tangent.z, z: tangent.x } };
+  return { point, height: trackHeight(t), tangent, normal: { x: -tangent.z, z: tangent.x } };
 }
 
 function pointOnTrack(t, offset = 0) {
   const frame = trackFrame(t);
-  return { x: frame.point.x + frame.normal.x * offset, z: frame.point.z + frame.normal.z * offset };
+  return { x: frame.point.x + frame.normal.x * offset, y: frame.height, z: frame.point.z + frame.normal.z * offset };
 }
 
 function projectTrack(x, z, nearT) {
@@ -164,8 +173,8 @@ export class Race3D {
         const sign = side === 0 ? -1 : 1;
         const x = frame.point.x + frame.normal.x * ROAD_HALF_WIDTH * sign;
         const z = frame.point.z + frame.normal.z * ROAD_HALF_WIDTH * sign;
-        positions.push(x, 0.015, z); normals.push(0, 1, 0); uvs.push(i / segments * 28, side);
-        if (i < segments) edgePoints[side].push(new THREE.Vector3(x, 0.08, z));
+        positions.push(x, frame.height + 0.015, z); normals.push(0, 1, 0); uvs.push(i / segments * 28, side);
+        if (i < segments) edgePoints[side].push(new THREE.Vector3(x, frame.height + 0.08, z));
       }
       if (i < segments) {
         const a = i * 2, b = a + 1, c = a + 2, d = a + 3;
@@ -196,14 +205,30 @@ export class Race3D {
     for (let i = 0; i < dashCount; i++) {
       const t = TWO_PI * i / dashCount, frame = trackFrame(t);
       const yaw = Math.atan2(-frame.tangent.z, frame.tangent.x);
-      transform.position.set(frame.point.x, 0.1, frame.point.z); transform.rotation.set(0, yaw, 0); transform.updateMatrix(); dashes.setMatrixAt(i, transform.matrix);
+      transform.position.set(frame.point.x, frame.height + 0.1, frame.point.z); transform.rotation.set(0, yaw, 0); transform.updateMatrix(); dashes.setMatrixAt(i, transform.matrix);
       for (const [sideIndex, side] of [-1, 1].entries()) {
         const mesh = barrierMeshes[sideIndex][i % 2];
-        transform.position.set(frame.point.x + frame.normal.x * (ROAD_HALF_WIDTH + 3) * side, 1.1, frame.point.z + frame.normal.z * (ROAD_HALF_WIDTH + 3) * side);
+        transform.position.set(frame.point.x + frame.normal.x * (ROAD_HALF_WIDTH + 3) * side, frame.height + 1.1, frame.point.z + frame.normal.z * (ROAD_HALF_WIDTH + 3) * side);
         transform.updateMatrix(); mesh.setMatrixAt(Math.floor(i / 2), transform.matrix);
       }
     }
     this.scene.add(dashes, ...barrierMeshes.flat());
+
+    // The t=0 branch rises over the t=pi branch. Reinforced cross-beams and
+    // piers sit outside the lower racing line while the road itself forms ramps.
+    const bridgeConcrete = new THREE.MeshStandardMaterial({ color: 0x77848a, roughness: 0.78 });
+    for (const t of [-0.18, 0, 0.18]) {
+      const frame = trackFrame(t);
+      const beam = new THREE.Mesh(new THREE.BoxGeometry(ROAD_HALF_WIDTH * 2 + 8, 1.1, 8), bridgeConcrete);
+      beam.position.set(frame.point.x, Math.max(1, frame.height - 0.6), frame.point.z);
+      beam.rotation.y = Math.atan2(-frame.normal.z, frame.normal.x); this.scene.add(beam);
+      if (Math.abs(t) > 0.01) for (const side of [-1, 1]) {
+        const height = Math.max(2, frame.height - 1.15);
+        const pier = new THREE.Mesh(new THREE.BoxGeometry(7, height, 7), bridgeConcrete);
+        pier.position.set(frame.point.x + frame.normal.x * (ROAD_HALF_WIDTH + 7) * side, height / 2, frame.point.z + frame.normal.z * (ROAD_HALF_WIDTH + 7) * side);
+        this.scene.add(pier);
+      }
+    }
   }
 
   addTrackStripe(t, checkpoint) {
@@ -215,7 +240,7 @@ export class Race3D {
       const tile = new THREE.Mesh(square, (row + col) % 2 ? dark : light);
       const along = (row - 0.5) * 7;
       const across = -ROAD_HALF_WIDTH + 8 + col * 8;
-      tile.position.set(frame.point.x + frame.tangent.x * along + frame.normal.x * across, 0.13, frame.point.z + frame.tangent.z * along + frame.normal.z * across);
+      tile.position.set(frame.point.x + frame.tangent.x * along + frame.normal.x * across, frame.height + 0.13, frame.point.z + frame.tangent.z * along + frame.normal.z * across);
       this.scene.add(tile);
     }
     if (checkpoint) {
@@ -274,7 +299,7 @@ export class Race3D {
     locations.forEach((progress, index) => {
       const point = pointOnTrack(TRACK_START_T + progress, offsets[index]);
       const x = point.x, z = point.z;
-      const group = new THREE.Group(); group.position.set(x, 2, z); this.scene.add(group);
+      const group = new THREE.Group(); group.position.set(x, point.y + 2, z); this.scene.add(group);
       const ring = new THREE.Mesh(new THREE.TorusGeometry(8, 1.15, 10, 32), ringMat); ring.rotation.x = -Math.PI / 2; group.add(ring);
       const orb = new THREE.Mesh(new THREE.IcosahedronGeometry(3.4, 1), orbMat); orb.position.y = 5; group.add(orb);
       this.pickups.push({ group, ring, orb, x, z, point, phase: index * 0.7 });
@@ -368,7 +393,7 @@ export class Race3D {
       ready: player.ready, connected: player.connected, latency: player.latency,
       driveStarted: false, jump: 0, boost: false, index, bodyMat, labelTex, label, frontWheels,
     };
-    group.position.set(car.x, 0, car.z); group.rotation.y = -car.yaw;
+    group.position.set(car.x, trackHeight(trackT), car.z); group.rotation.y = -car.yaw;
     this.cars.set(car.id, car);
     return car;
   }
@@ -494,7 +519,7 @@ export class Race3D {
     if (input.jump && car.jump <= 0) car.jump = 0.72;
     car.jump = Math.max(0, car.jump - seconds);
     const bob = car.jump ? Math.sin((0.72 - car.jump) / 0.72 * Math.PI) * 2.2 : 0;
-    car.group.position.set(car.x, bob, car.z); car.group.rotation.y = -car.yaw;
+    car.group.position.set(car.x, trackPosition.height + bob, car.z); car.group.rotation.y = -car.yaw;
     if (!car.jump) car.group.scale.set(1, 1, 1);
     else car.group.scale.set(1.05, 1.05, 1.05);
   }
@@ -502,7 +527,7 @@ export class Race3D {
   updatePickups(dt) {
     this.elapsed += dt / 1000;
     this.pickups.forEach(pickup => {
-      pickup.group.position.y = 2.2 + Math.sin(this.elapsed * 2.2 + pickup.phase) * 1.1;
+      pickup.group.position.y = pickup.point.y + 2.2 + Math.sin(this.elapsed * 2.2 + pickup.phase) * 1.1;
       pickup.group.rotation.y += dt * 0.0007;
       pickup.orb.rotation.x += dt * 0.0005;
     });
@@ -536,8 +561,8 @@ export class Race3D {
       const chaseDistance = 9.4;
       // Keep a constant chase-camera offset and height. It follows the car's position and heading
       // without changing its distance or pitch as speed changes.
-      this.camera.position.set(car.x - forwardX * chaseDistance, 4.5 + car.jump * 0.25, car.z - forwardZ * chaseDistance);
-      this.camera.lookAt(car.x + forwardX * 7.5, 1.15 + car.jump * 0.25, car.z + forwardZ * 7.5);
+      this.camera.position.set(car.x - forwardX * chaseDistance, car.group.position.y + 4.5 + car.jump * 0.25, car.z - forwardZ * chaseDistance);
+      this.camera.lookAt(car.x + forwardX * 7.5, car.group.position.y + 1.15 + car.jump * 0.25, car.z + forwardZ * 7.5);
       this.renderer.setViewport(left, bottom, w, h);
       this.renderer.setScissor(left, bottom, w, h);
       this.renderer.render(this.scene, this.camera);

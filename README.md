@@ -2,13 +2,31 @@
 
 TiltRace is a small multiplayer arcade racer. A browser runs the race and creates a room; phones join as motion controllers over the WebSocket server. Deploy it publicly to let players join from different Wi-Fi networks or cellular data.
 
-## Architecture and stack
+## Tech stack
 
-- **Server:** Node.js and `ws`. It creates eight-character room codes, issues per-player session IDs, tracks readiness and latency, relays bounded controller input, and owns each player's nitro balance. The browser reports car positions at 16 Hz; the server checks those positions against fixed recharge zones and sends validated nitro pickup events.
-- **Browser:** React + Three.js. A shared 3D scene is rendered through a fixed-offset follow camera for each racer. Cars steer through their front wheels and turn along their driving arc; racers receive distinct sedan colors and small nameplates at the rear of each car. The figure-eight circuit has a checkpoint opposite the start line, grandstands, and nitro recharge pads distributed along both loops. The centered translucent minimap shows the live track and racers; each viewport also includes a dashboard speedometer, a timer, and a keyboard driver.
-- **Phone:** React Native with Expo SDK 57 and React Native 0.86. Expo Sensors, Camera, Haptics, and AsyncStorage provide motion, QR scanning, feedback, and reconnect persistence while keeping Android builds reproducible without private signing credentials. SDK 57 follows Expo's current stable React Native and React pairing ([SDK reference](https://docs.expo.dev/versions/latest/)).
+| Component | Technology | Role |
+| --- | --- | --- |
+| Monorepo | npm workspaces | Runs the server, browser game, and phone controller from one repository. |
+| Relay server | Node.js (ES modules), `ws` | Creates rooms, pairs clients, relays controller input, tracks readiness and ping, and validates nitro recharge claims. |
+| Browser game | React 18, Vite 6, Three.js 0.186 | Hosts the room and renders the 3D race; each racer gets a viewport and local frame-by-frame car simulation. |
+| Phone controller | React Native 0.86, Expo SDK 57 | Reads motion sensors, scans room QR codes, sends controls, and stores reconnect details. Expo Camera, Sensors, Haptics, Screen Orientation, and AsyncStorage provide those device features. |
+| Hosting | Render Blueprint (optional) | Serves the built browser app and WebSocket relay from a public HTTPS/WSS endpoint for play across networks. |
 
-The landscape controller streams normalized steering, gyro samples, and button state at 30 Hz. The server accepts at most 50 input updates per second per player and broadcasts inputs to the browser. The browser simulates cars locally at up to 60 frames per second and reports position snapshots every 60 ms. Steering smoothing and neutral calibration run on the phone. Latency is measured as round-trip time from server ping to phone reply, then shared with the browser and shown on both screens. Wi-Fi, device load, and browser scheduling can all add delay; WebSockets do not remove network latency.
+### Pairing flow
+
+1. Start the browser and relay locally with `npm run dev`, or deploy the service with [`render.yaml`](render.yaml). Locally, Vite serves the page on port `5173` and the WebSocket relay listens on port `3001`.
+2. In the browser, create a race room. The server returns an eight-character room code; the page's QR code packages that code with the relay address.
+3. Open TiltRace Controller in Expo Go or an installed build. Scan the QR code, or enter the relay address and room code manually. The phone sends a `join` message and receives a player session ID.
+4. Calibrate in the phone's landscape driving position, then tap **Ready to race**. The browser host starts the round when the racers are ready.
+
+For **local play**, the phone must be able to reach the laptop on the LAN: use the laptop's LAN IP (not `localhost`) and allow ports `5173` and `3001` through the private-network firewall. For **play across different Wi-Fi networks or cellular data**, deploy publicly and pair using the hosted `https://` page/`wss://` relay address. Both devices need internet access; they do not need to share a Wi-Fi network. See [Play across networks](#play-across-networks) for deployment steps.
+
+### Latency and input flow
+
+- The phone samples steering and sends normalized steering, gyro readings, and button states every **33 ms** (about 30 updates/second). Sensor smoothing and neutral calibration happen on the phone before sending.
+- The relay accepts at most **one input every 20 ms per racer** (up to 50/second), then forwards the latest controls to the browser. The browser simulates cars locally and renders its scene with the display's animation frames; it sends position snapshots to the server about every **60 ms** for room state and nitro-pad checks.
+- The phone measures round-trip ping by sending a timestamped ping about every **2 seconds** and timing the server's pong. The server also pings each phone every 2 seconds; the phone replies, and the server records that round trip for the browser's racer list. These are RTT measurements, not one-way control delay, and the display is refreshed on ping/room updates rather than on every control packet.
+- Ping includes network transit in both directions plus phone/server scheduling. Actual control response can also be affected by Wi-Fi or cellular congestion, device load, and browser frame scheduling. A public relay enables cross-network play, but cannot guarantee a fixed latency.
 
 ## Prerequisites
 
