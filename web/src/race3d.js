@@ -2,14 +2,13 @@ import * as THREE from 'three';
 
 const COLORS = [0x38d9ff, 0xff6c5c, 0xc084fc, 0xffcb45, 0x72e394, 0xff78bd, 0x8ba5ff, 0xff925c];
 const CENTER = 600;
-const TRACK_RADIUS = 290;
-const INNER_EDGE = 222;
-const OUTER_EDGE = 358;
-const CHECKPOINT_ANGLE = Math.PI;
+const TRACK_A = 340;
+const TRACK_B = 210;
+const ROAD_HALF_WIDTH = 58;
+const TRACK_START_T = -Math.PI / 2;
+const CHECKPOINT_PROGRESS = Math.PI;
 const MAX_STEER_ANGLE = 0.46;
 const EFFECTIVE_WHEELBASE = 34;
-const PICKUP_ANGLES = [0, Math.PI * 0.4, Math.PI * 0.8, Math.PI * 1.2, Math.PI * 1.6];
-const OBSTACLE_ANGLES = [0.72, 2.15, 3.58, 5.05];
 const TWO_PI = Math.PI * 2;
 const wrappedAngleDelta = (from, to) => Math.atan2(Math.sin(to - from), Math.cos(to - from));
 
@@ -20,7 +19,43 @@ export function viewColumns(count) {
   return 4;
 }
 
-const mapPoint = angle => ({ x: CENTER + Math.sin(angle) * TRACK_RADIUS, y: 470 - Math.cos(angle) * TRACK_RADIUS });
+function trackPoint(t) {
+  return { x: TRACK_A * Math.sin(t), z: TRACK_B * Math.sin(2 * t) };
+}
+
+function trackFrame(t) {
+  const point = trackPoint(t);
+  const dx = TRACK_A * Math.cos(t), dz = TRACK_B * 2 * Math.cos(2 * t);
+  const length = Math.hypot(dx, dz) || 1;
+  const tangent = { x: dx / length, z: dz / length };
+  return { point, tangent, normal: { x: -tangent.z, z: tangent.x } };
+}
+
+function pointOnTrack(t, offset = 0) {
+  const frame = trackFrame(t);
+  return { x: frame.point.x + frame.normal.x * offset, z: frame.point.z + frame.normal.z * offset };
+}
+
+function projectTrack(x, z, nearT) {
+  let bestT = nearT, bestDistance = Infinity;
+  const span = 0.32, divisions = 32;
+  for (let i = 0; i <= divisions; i++) {
+    const t = nearT - span + (2 * span * i / divisions);
+    const point = trackPoint(t), distance = (x - point.x) ** 2 + (z - point.z) ** 2;
+    if (distance < bestDistance) { bestDistance = distance; bestT = t; }
+  }
+  let step = span / divisions;
+  for (let i = 0; i < 7; i++) {
+    step *= 0.5;
+    for (const t of [bestT - step, bestT + step]) {
+      const point = trackPoint(t), distance = (x - point.x) ** 2 + (z - point.z) ** 2;
+      if (distance < bestDistance) { bestDistance = distance; bestT = t; }
+    }
+  }
+  const frame = trackFrame(bestT);
+  const lateral = (x - frame.point.x) * frame.normal.x + (z - frame.point.z) * frame.normal.z;
+  return { ...frame, t: bestT, lateral, distance: Math.sqrt(bestDistance) };
+}
 
 function makeNoiseTexture(base, speckle, count, repeat) {
   const canvas = document.createElement('canvas');
@@ -57,14 +92,6 @@ function liveryTexture(color) {
   const texture = new THREE.CanvasTexture(canvas);
   texture.colorSpace = THREE.SRGBColorSpace;
   return texture;
-}
-
-function addRing(scene, radius, tube, material, y = 0.08) {
-  const mesh = new THREE.Mesh(new THREE.TorusGeometry(radius, tube, 8, 240), material);
-  mesh.rotation.x = -Math.PI / 2;
-  mesh.position.y = y;
-  scene.add(mesh);
-  return mesh;
 }
 
 function carMaterial(color, options = {}) {
@@ -119,117 +146,138 @@ export class Race3D {
     const ground = new THREE.Mesh(new THREE.PlaneGeometry(2400, 2400), new THREE.MeshStandardMaterial({ map: grass, roughness: 1 }));
     ground.rotation.x = -Math.PI / 2; ground.position.y = -0.35; this.scene.add(ground);
 
-    // The same radius is used by the starting grid, physics, pickups and finish stripe.
     const asphalt = makeNoiseTexture('#303740', 'rgba(205,218,226,', 1800, 26);
-    const road = new THREE.Mesh(new THREE.RingGeometry(INNER_EDGE, OUTER_EDGE, 256), new THREE.MeshStandardMaterial({ map: asphalt, roughness: 0.92, metalness: 0.04 }));
-    road.rotation.x = -Math.PI / 2; road.position.y = 0.015; this.scene.add(road);
-
-    const paint = new THREE.MeshStandardMaterial({ color: 0xe2e8df, roughness: 0.65 });
-    const curbWhite = new THREE.MeshStandardMaterial({ color: 0xe8ecec, roughness: 0.72 });
-    const curbRed = new THREE.MeshStandardMaterial({ color: 0xd84d49, roughness: 0.72 });
-    addRing(this.scene, INNER_EDGE, 1.3, curbWhite, 0.12);
-    addRing(this.scene, OUTER_EDGE, 1.3, curbWhite, 0.12);
-    addRing(this.scene, INNER_EDGE + 8, 0.48, paint, 0.11);
-    addRing(this.scene, OUTER_EDGE - 8, 0.48, paint, 0.11);
-    const laneDashGeo = new THREE.BoxGeometry(11, 0.12, 0.9);
-    const laneDashes = new THREE.InstancedMesh(laneDashGeo, paint, 96);
-    const transform = new THREE.Object3D();
-    for (let i = 0; i < 96; i++) {
-      const angle = i * Math.PI * 2 / 96;
-      transform.position.set(Math.sin(angle) * TRACK_RADIUS, 0.1, -Math.cos(angle) * TRACK_RADIUS);
-      transform.rotation.set(0, Math.PI - angle, 0); transform.updateMatrix(); laneDashes.setMatrixAt(i, transform.matrix);
-    }
-    this.scene.add(laneDashes);
-
-    // Alternating low safety blocks define the circular road edge.
-    const barrierGeo = new THREE.BoxGeometry(11, 2.4, 2.7);
-    for (const radius of [INNER_EDGE - 4, OUTER_EDGE + 4]) for (const [offset, material] of [[0, curbRed], [1, curbWhite]]) {
-      const barriers = new THREE.InstancedMesh(barrierGeo, material, 56);
-      for (let i = offset; i < 112; i += 2) {
-        const angle = i * Math.PI * 2 / 112;
-        transform.position.set(Math.sin(angle) * radius, 1.05, -Math.cos(angle) * radius);
-        transform.rotation.set(0, Math.PI - angle, 0); transform.updateMatrix(); barriers.setMatrixAt((i - offset) / 2, transform.matrix);
-      }
-      this.scene.add(barriers);
-    }
-
-    // Start / finish line sits across the road at its north end. The cars start just behind it, pointing clockwise.
-    const checkerBlack = new THREE.MeshStandardMaterial({ color: 0x101820, roughness: 0.8 });
-    const checkerWhite = new THREE.MeshStandardMaterial({ color: 0xf4f5ec, roughness: 0.8 });
-    const square = new THREE.BoxGeometry(9, 0.16, 9);
-    for (let row = 0; row < 2; row++) for (let col = 0; col < 14; col++) {
-      const tile = new THREE.Mesh(square, (row + col) % 2 ? checkerBlack : checkerWhite);
-      tile.position.set(-4.5 + row * 9, 0.13, -OUTER_EDGE + 8 + col * 9);
-      this.scene.add(tile);
-    }
-
-    // A second gate sits opposite the start line. Lap progress only counts once a racer passes it.
-    const checkpointBlue = new THREE.MeshStandardMaterial({ color: 0x32d7e8, emissive: 0x087b8c, emissiveIntensity: 0.65, roughness: 0.42 });
-    const checkpointWhite = new THREE.MeshStandardMaterial({ color: 0xe9f6ef, roughness: 0.72 });
-    for (let row = 0; row < 2; row++) for (let col = 0; col < 14; col++) {
-      const tile = new THREE.Mesh(square, (row + col) % 2 ? checkpointBlue : checkpointWhite);
-      // At the south side, racers travel east/west, so the checkpoint stripe
-      // spans the road's north/south width and crosses the racing line at 90°.
-      tile.position.set(-4.5 + row * 9, 0.15, INNER_EDGE + 8 + col * 9);
-      this.scene.add(tile);
-    }
-    const gatePost = new THREE.Mesh(new THREE.BoxGeometry(2.6, 8, 2.6), checkpointBlue);
-    for (const z of [INNER_EDGE - 4, OUTER_EDGE + 4]) { const post = gatePost.clone(); post.position.set(0, 4, z); this.scene.add(post); }
-    const gateTop = new THREE.Mesh(new THREE.BoxGeometry(2.8, 2.8, 142), checkpointBlue);
-    gateTop.position.set(0, 8, TRACK_RADIUS); this.scene.add(gateTop);
-
-    const infield = new THREE.Mesh(new THREE.CircleGeometry(INNER_EDGE - 2, 160), new THREE.MeshStandardMaterial({ color: 0x54794b, map: grass, roughness: 1 }));
-    infield.rotation.x = -Math.PI / 2; infield.position.y = 0.025; this.scene.add(infield);
-    this.addInfieldDetails();
+    this.buildFigureEightTrack(asphalt);
+    this.addTrackStripe(TRACK_START_T, false);
+    this.addTrackStripe(TRACK_START_T + Math.PI, true);
     this.addPickups();
-    this.addObstacles();
+    this.addGrandstands();
   }
 
-  addInfieldDetails() {
-    const island = new THREE.Mesh(new THREE.CircleGeometry(76, 72), new THREE.MeshStandardMaterial({ color: 0x426548, roughness: 0.88 }));
-    island.rotation.x = -Math.PI / 2; island.position.y = 0.08; this.scene.add(island);
-    const trunk = new THREE.Mesh(new THREE.CylinderGeometry(3.5, 5, 22, 9), new THREE.MeshStandardMaterial({ color: 0x664b31, roughness: 1 }));
-    trunk.position.y = 11; this.scene.add(trunk);
-    for (let i = 0; i < 3; i++) {
-      const crown = new THREE.Mesh(new THREE.ConeGeometry(22 - i * 4, 32, 9), new THREE.MeshStandardMaterial({ color: i % 2 ? 0x326748 : 0x3b7550, roughness: 0.9 }));
-      crown.position.set(0, 31 + i * 17, 0); this.scene.add(crown);
+  buildFigureEightTrack(asphalt) {
+    const segments = 320;
+    const positions = [], uvs = [], normals = [], indices = [];
+    const edgePoints = [-1, 1].map(() => []);
+    for (let i = 0; i <= segments; i++) {
+      const t = TWO_PI * i / segments, frame = trackFrame(t);
+      for (let side = 0; side < 2; side++) {
+        const sign = side === 0 ? -1 : 1;
+        const x = frame.point.x + frame.normal.x * ROAD_HALF_WIDTH * sign;
+        const z = frame.point.z + frame.normal.z * ROAD_HALF_WIDTH * sign;
+        positions.push(x, 0.015, z); normals.push(0, 1, 0); uvs.push(i / segments * 28, side);
+        if (i < segments) edgePoints[side].push(new THREE.Vector3(x, 0.08, z));
+      }
+      if (i < segments) {
+        const a = i * 2, b = a + 1, c = a + 2, d = a + 3;
+        indices.push(a, c, b, b, c, d);
+      }
     }
-    for (let i = 0; i < 22; i++) {
-      const a = i * Math.PI * 2 / 22;
-      const rock = new THREE.Mesh(new THREE.DodecahedronGeometry(3 + i % 3, 0), new THREE.MeshStandardMaterial({ color: i % 2 ? 0x71816d : 0x8a8068, roughness: 1 }));
-      rock.position.set(Math.sin(a) * 92, 1.3, -Math.cos(a) * 92); this.scene.add(rock);
+    const roadGeometry = new THREE.BufferGeometry();
+    roadGeometry.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
+    roadGeometry.setAttribute('normal', new THREE.Float32BufferAttribute(normals, 3));
+    roadGeometry.setAttribute('uv', new THREE.Float32BufferAttribute(uvs, 2));
+    roadGeometry.setIndex(indices);
+    const road = new THREE.Mesh(roadGeometry, new THREE.MeshStandardMaterial({ map: asphalt, roughness: 0.92, metalness: 0.04, side: THREE.DoubleSide }));
+    this.scene.add(road);
+
+    const curbMat = new THREE.MeshStandardMaterial({ color: 0xe8ecec, roughness: 0.72 });
+    for (const points of edgePoints) {
+      const curve = new THREE.CatmullRomCurve3(points, true, 'centripetal');
+      const curb = new THREE.Mesh(new THREE.TubeGeometry(curve, 640, 1.2, 8, true), curbMat);
+      this.scene.add(curb);
     }
-    for (let i = 0; i < 36; i++) {
-      const angle = i * Math.PI * 2 / 36;
-      const post = new THREE.Mesh(new THREE.CylinderGeometry(0.35, 0.45, 8, 8), new THREE.MeshStandardMaterial({ color: 0xa9c39c, emissive: 0x152719, roughness: 0.75 }));
-      post.position.set(Math.sin(angle) * 210, 4, -Math.cos(angle) * 210); this.scene.add(post);
+
+    const paint = new THREE.MeshStandardMaterial({ color: 0xe2e8df, roughness: 0.65 });
+    const dashCount = 112;
+    const dashes = new THREE.InstancedMesh(new THREE.BoxGeometry(11, 0.12, 0.85), paint, dashCount);
+    const barrierMaterials = [new THREE.MeshStandardMaterial({ color: 0xd84d49, roughness: 0.72 }), curbMat];
+    const barrierMeshes = [-1, 1].map(() => barrierMaterials.map(material => new THREE.InstancedMesh(new THREE.BoxGeometry(10, 2.4, 2.7), material, dashCount / 2)));
+    const transform = new THREE.Object3D();
+    for (let i = 0; i < dashCount; i++) {
+      const t = TWO_PI * i / dashCount, frame = trackFrame(t);
+      const yaw = Math.atan2(-frame.tangent.z, frame.tangent.x);
+      transform.position.set(frame.point.x, 0.1, frame.point.z); transform.rotation.set(0, yaw, 0); transform.updateMatrix(); dashes.setMatrixAt(i, transform.matrix);
+      for (const [sideIndex, side] of [-1, 1].entries()) {
+        const mesh = barrierMeshes[sideIndex][i % 2];
+        transform.position.set(frame.point.x + frame.normal.x * (ROAD_HALF_WIDTH + 3) * side, 1.1, frame.point.z + frame.normal.z * (ROAD_HALF_WIDTH + 3) * side);
+        transform.updateMatrix(); mesh.setMatrixAt(Math.floor(i / 2), transform.matrix);
+      }
+    }
+    this.scene.add(dashes, ...barrierMeshes.flat());
+  }
+
+  addTrackStripe(t, checkpoint) {
+    const frame = trackFrame(t);
+    const dark = new THREE.MeshStandardMaterial({ color: checkpoint ? 0x16899b : 0x101820, roughness: 0.8 });
+    const light = new THREE.MeshStandardMaterial({ color: checkpoint ? 0x9df6ef : 0xf4f5ec, roughness: 0.8 });
+    const square = new THREE.BoxGeometry(9, 0.16, 9);
+    for (let row = 0; row < 2; row++) for (let col = 0; col < 14; col++) {
+      const tile = new THREE.Mesh(square, (row + col) % 2 ? dark : light);
+      const along = (row - 0.5) * 7;
+      const across = -ROAD_HALF_WIDTH + 8 + col * 8;
+      tile.position.set(frame.point.x + frame.tangent.x * along + frame.normal.x * across, 0.13, frame.point.z + frame.tangent.z * along + frame.normal.z * across);
+      this.scene.add(tile);
+    }
+    if (checkpoint) {
+      const gateMat = new THREE.MeshStandardMaterial({ color: 0x32d7e8, emissive: 0x087b8c, emissiveIntensity: 0.65, roughness: 0.42 });
+      const gate = new THREE.Group();
+      const postGeo = new THREE.BoxGeometry(2.6, 8, 2.6);
+      for (const side of [-1, 1]) {
+        const post = new THREE.Mesh(postGeo, gateMat);
+        post.position.set(frame.point.x + frame.normal.x * (ROAD_HALF_WIDTH + 7) * side, 4, frame.point.z + frame.normal.z * (ROAD_HALF_WIDTH + 7) * side);
+        gate.add(post);
+      }
+      const beam = new THREE.Mesh(new THREE.BoxGeometry(ROAD_HALF_WIDTH * 2 + 14, 2.8, 2.8), gateMat);
+      beam.position.set(frame.point.x, 8, frame.point.z);
+      beam.rotation.y = Math.atan2(-frame.normal.z, frame.normal.x);
+      gate.add(beam); this.scene.add(gate);
+    }
+  }
+
+  addGrandstands() {
+    const concrete = new THREE.MeshStandardMaterial({ color: 0x69767b, roughness: 0.82 });
+    const roofMat = new THREE.MeshStandardMaterial({ color: 0x1c3038, metalness: 0.4, roughness: 0.5 });
+    const seatColors = [0xc34d47, 0xe2c04c, 0x46889a, 0xeeeece].map(color => new THREE.Color(color));
+    const layouts = [
+      { x: -455, z: 0, yaw: -Math.PI / 2 }, { x: 455, z: 0, yaw: Math.PI / 2 },
+      { x: -240, z: -310, yaw: 0 }, { x: 240, z: -310, yaw: 0 },
+      { x: -240, z: 310, yaw: Math.PI }, { x: 240, z: 310, yaw: Math.PI },
+    ];
+    for (const layout of layouts) {
+      const stand = new THREE.Group(); stand.position.set(layout.x, 0, layout.z); stand.rotation.y = layout.yaw;
+      const base = new THREE.Mesh(new THREE.BoxGeometry(152, 2, 38), concrete); base.position.set(0, 1, 8); stand.add(base);
+      const seats = new THREE.InstancedMesh(new THREE.BoxGeometry(4.2, 1.6, 2.5), new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.7 }), 96);
+      const seatTransform = new THREE.Object3D();
+      let seatIndex = 0;
+      for (let row = 0; row < 4; row++) {
+        const y = 2.5 + row * 2.1, z = row * 7;
+        const tier = new THREE.Mesh(new THREE.BoxGeometry(144 - row * 6, 1.2, 8), concrete); tier.position.set(0, y, z); stand.add(tier);
+        for (let seat = 0; seat < 24; seat++) {
+          seatTransform.position.set(-66 + seat * 5.7, y + 1.25, z - 1); seatTransform.updateMatrix();
+          seats.setMatrixAt(seatIndex, seatTransform.matrix); seats.setColorAt(seatIndex, seatColors[(seat + row * 2) % seatColors.length]); seatIndex++;
+        }
+      }
+      stand.add(seats);
+      const roof = new THREE.Mesh(new THREE.BoxGeometry(160, 2.2, 35), roofMat); roof.position.set(0, 13.2, 10); stand.add(roof);
+      for (const x of [-72, 72]) {
+        const support = new THREE.Mesh(new THREE.BoxGeometry(2.4, 12, 2.4), roofMat); support.position.set(x, 6.2, 14); stand.add(support);
+      }
+      this.scene.add(stand);
     }
   }
 
   addPickups() {
     const ringMat = new THREE.MeshStandardMaterial({ color: 0x66ffd1, emissive: 0x19d99b, emissiveIntensity: 2.3, metalness: 0.3, roughness: 0.22 });
     const orbMat = new THREE.MeshStandardMaterial({ color: 0xc7fff2, emissive: 0x42ffd1, emissiveIntensity: 2.8, roughness: 0.18 });
-    PICKUP_ANGLES.forEach((angle, index) => {
-      const point = mapPoint(angle);
-      const x = point.x - CENTER, z = point.y - 470;
+    const locations = [0.48, 1.32, 2.18, 3.05, 3.95, 4.88, 5.68];
+    const offsets = [-21, 18, -16, 22, -20, 17, -14];
+    locations.forEach((progress, index) => {
+      const point = pointOnTrack(TRACK_START_T + progress, offsets[index]);
+      const x = point.x, z = point.z;
       const group = new THREE.Group(); group.position.set(x, 2, z); this.scene.add(group);
       const ring = new THREE.Mesh(new THREE.TorusGeometry(8, 1.15, 10, 32), ringMat); ring.rotation.x = -Math.PI / 2; group.add(ring);
       const orb = new THREE.Mesh(new THREE.IcosahedronGeometry(3.4, 1), orbMat); orb.position.y = 5; group.add(orb);
       this.pickups.push({ group, ring, orb, x, z, point, phase: index * 0.7 });
-    });
-  }
-
-  addObstacles() {
-    this.obstacles = [];
-    OBSTACLE_ANGLES.forEach((angle, index) => {
-      const radius = TRACK_RADIUS + (index % 2 ? 30 : -30);
-      const x = Math.sin(angle) * radius, z = -Math.cos(angle) * radius;
-      const group = new THREE.Group(); group.position.set(x, 0, z); group.rotation.y = Math.PI - angle; this.scene.add(group);
-      const body = new THREE.Mesh(new THREE.BoxGeometry(13, 2.2, 7), new THREE.MeshStandardMaterial({ color: index % 2 ? 0xe85b47 : 0xffb63b, roughness: 0.65 }));
-      body.position.y = 1.3; group.add(body);
-      const lamp = new THREE.Mesh(new THREE.SphereGeometry(1.2, 10, 8), new THREE.MeshStandardMaterial({ color: 0xffe59a, emissive: 0xff7b24, emissiveIntensity: 1.8 }));
-      lamp.position.set(0, 3, 0); group.add(lamp);
-      this.obstacles.push({ x, z });
     });
   }
 
@@ -310,12 +358,13 @@ export class Race3D {
     label.position.set(0, 1.28, 2.24); group.add(label);
     this.scene.add(group);
 
-    const theta = -0.07 - Math.floor(index / 2) * 0.09;
-    const radius = TRACK_RADIUS + (index % 2 ? 19 : -19);
+    const trackT = TRACK_START_T - 0.055 - Math.floor(index / 2) * 0.055;
+    const spawn = pointOnTrack(trackT, index % 2 ? 17 : -17);
+    const tangent = trackFrame(trackT).tangent;
     const car = {
-      id: player.id, name: player.name, color, group, x: Math.sin(theta) * radius,
-      z: -Math.cos(theta) * radius, yaw: theta + Math.PI / 2, speed: 0, nitro: player.nitro ?? 100,
-      score: 0, laps: 0, lapProgress: 0, lastTrackAngle: theta, checkpointPassed: false,
+      id: player.id, name: player.name, color, group, x: spawn.x,
+      z: spawn.z, yaw: Math.atan2(tangent.x, -tangent.z), speed: 0, nitro: player.nitro ?? 100,
+      score: 0, laps: 0, lapProgress: 0, lastTrackT: trackT, checkpointPassed: false,
       ready: player.ready, connected: player.connected, latency: player.latency,
       driveStarted: false, jump: 0, boost: false, index, bodyMat, labelTex, label, frontWheels,
     };
@@ -384,7 +433,8 @@ export class Race3D {
     const seconds = Math.min(dt / 1000, 0.04);
     const firstThrottleFrame = !car.driveStarted && input.throttle > 0;
     if (input.throttle > 0) car.driveStarted = true;
-    const trackHeading = Math.atan2(car.x, -car.z) + Math.PI / 2;
+    const currentTrack = projectTrack(car.x, car.z, car.lastTrackT);
+    const trackHeading = Math.atan2(currentTrack.tangent.x, -currentTrack.tangent.z);
     if (!car.driveStarted || firstThrottleFrame) {
       // Ignore tilt until the driver launches and keep the nose tangent to the circuit.
       car.yaw = trackHeading;
@@ -415,21 +465,21 @@ export class Race3D {
     const previousX = car.x, previousZ = car.z;
     car.x += Math.sin(car.yaw) * car.speed * seconds;
     car.z -= Math.cos(car.yaw) * car.speed * seconds;
-    const radius = Math.hypot(car.x, car.z);
-    if (radius < INNER_EDGE + 8 || radius > OUTER_EDGE - 8) {
-      const edge = radius < INNER_EDGE + 8 ? INNER_EDGE + 8 : OUTER_EDGE - 8;
-      const scale = edge / Math.max(radius, 0.001);
-      car.x *= scale; car.z *= scale; car.speed *= 0.16;
+    let trackPosition = projectTrack(car.x, car.z, currentTrack.t);
+    const roadLimit = ROAD_HALF_WIDTH - 7;
+    if (Math.abs(trackPosition.lateral) > roadLimit) {
+      const clampedOffset = Math.sign(trackPosition.lateral) * roadLimit;
+      car.x = trackPosition.point.x + trackPosition.normal.x * clampedOffset;
+      car.z = trackPosition.point.z + trackPosition.normal.z * clampedOffset;
+      car.speed *= 0.55;
+      trackPosition = projectTrack(car.x, car.z, trackPosition.t);
     }
-    for (const obstacle of this.obstacles) if (Math.hypot(car.x - obstacle.x, car.z - obstacle.z) < 8) car.speed *= 0.28;
     const moveX = car.x - previousX, moveZ = car.z - previousZ;
     if (Math.hypot(moveX, moveZ) > 0.0001) car.yaw = Math.atan2(moveX, -moveZ);
-    const trackAngle = Math.atan2(car.x, -car.z);
-    const trackRadius = Math.hypot(car.x, car.z);
-    const angleDelta = wrappedAngleDelta(car.lastTrackAngle, trackAngle);
-    if (trackRadius >= INNER_EDGE + 4 && trackRadius <= OUTER_EDGE - 4 && car.speed > 3 && angleDelta > 0) {
+    const angleDelta = wrappedAngleDelta(car.lastTrackT, trackPosition.t);
+    if (Math.abs(trackPosition.lateral) <= roadLimit && car.speed > 3 && angleDelta > 0) {
       car.lapProgress += angleDelta;
-      if (!car.checkpointPassed && car.lapProgress >= CHECKPOINT_ANGLE) car.checkpointPassed = true;
+      if (!car.checkpointPassed && car.lapProgress >= CHECKPOINT_PROGRESS) car.checkpointPassed = true;
       if (car.lapProgress >= TWO_PI) {
         const completedLaps = Math.floor(car.lapProgress / TWO_PI);
         car.lapProgress %= TWO_PI;
@@ -440,7 +490,7 @@ export class Race3D {
         car.checkpointPassed = false;
       }
     }
-    car.lastTrackAngle = trackAngle;
+    car.lastTrackT = trackPosition.t;
     if (input.jump && car.jump <= 0) car.jump = 0.72;
     car.jump = Math.max(0, car.jump - seconds);
     const bob = car.jump ? Math.sin((0.72 - car.jump) / 0.72 * Math.PI) * 2.2 : 0;

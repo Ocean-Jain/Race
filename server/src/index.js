@@ -9,6 +9,15 @@ const PORT = Number(process.env.PORT || 3001);
 const HOST = process.env.HOST || '0.0.0.0';
 const TICK_MS = 50;
 const SESSION_TTL = 60_000;
+const TRACK_START_T = -Math.PI / 2;
+const RECHARGE_PROGRESS = [0.48, 1.32, 2.18, 3.05, 3.95, 4.88, 5.68];
+const RECHARGE_OFFSETS = [-21, 18, -16, 22, -20, 17, -14];
+const RECHARGE_ZONES = RECHARGE_PROGRESS.map((progress, index) => {
+  const t = TRACK_START_T + progress;
+  const dx = 340 * Math.cos(t), dz = 420 * Math.cos(2 * t), length = Math.hypot(dx, dz) || 1;
+  const nx = -dz / length, nz = dx / length, offset = RECHARGE_OFFSETS[index];
+  return [600 + 340 * Math.sin(t) + nx * offset, 470 + 210 * Math.sin(2 * t) + nz * offset];
+});
 const rooms = new Map();
 const clients = new Map();
 const webRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../web/dist');
@@ -78,7 +87,7 @@ function onMessage(ws, raw) {
       for (const claim of m.cars.slice(0, 8)) {
         const p = room.players.get(claim.id); if (!p) continue;
         const x = Number(claim.x), y = Number(claim.y); if (!Number.isFinite(x) || !Number.isFinite(y) || Math.abs(x) > 3000 || Math.abs(y) > 3000) continue;
-        const pickup = [ [600,180], [876,380], [770,705], [430,705], [324,380] ].some(([px,py]) => Math.hypot(x-px,y-py) < 48);
+        const pickup = RECHARGE_ZONES.some(([px,py]) => Math.hypot(x-px,y-py) < 48);
         if (pickup && now - (p.lastPickup || 0) > 1500) { p.nitro = Math.min(100, p.nitro + 35); p.lastPickup = now; send(p.ws, 'recharge', { nitro: p.nitro }); }
         p.score = Math.max(0, Math.min(999999, Number(claim.score) || 0));
         cars.push({ id: p.id, x, y, angle: Number(claim.angle) || 0, score: p.score, nitro: p.nitro });

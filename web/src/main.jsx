@@ -8,14 +8,15 @@ const WS = import.meta.env.VITE_WS_URL || (location.protocol === 'https:' ? `wss
 const PLAYER_COLORS = [0x38d9ff,0xff6c5c,0xc084fc,0xffcb45,0x72e394,0xff78bd,0x8ba5ff,0xff925c];
 
 function MiniMap({ players }) {
+  const figureEight = 'M 28 80 C 28 30 88 28 110 80 C 132 132 192 130 192 80 C 192 30 132 28 110 80 C 88 132 28 130 28 80';
   return <div className="minimap" aria-label="Live race map">
     <div className="minimap-heading">TRACK MAP <span>LIVE</span></div>
-    <svg viewBox="0 0 160 160" role="img" aria-label="Circular race track and racer positions">
-      <circle cx="80" cy="80" r="49" className="map-track-outer"/>
-      <circle cx="80" cy="80" r="31" className="map-track-inner"/>
-      <circle cx="80" cy="80" r="39" className="map-track-dash"/>
-      <path d="M76 30h8v14h-8z" className="map-finish"/>
-      {players.map(player => <g key={player.id} transform={`translate(${80 + player.x * .128} ${80 + player.z * .128}) rotate(${player.yaw * 180 / Math.PI})`}>
+    <svg viewBox="0 0 220 160" role="img" aria-label="Figure-eight race track and racer positions">
+      <path d={figureEight} className="map-track-outer"/>
+      <path d={figureEight} className="map-track-inner"/>
+      <path d={figureEight} className="map-track-dash"/>
+      <path d="M18 74h20v12H18z M182 74h20v12h-20z" className="map-finish"/>
+      {players.map(player => <g key={player.id} transform={`translate(${110 + player.x * .24} ${80 + player.z * .25}) rotate(${player.yaw * 180 / Math.PI})`}>
         <path d="M0 -6 L3.5 4 L0 2 L-3.5 4 Z" fill={player.color || '#ffffff'} stroke="#06131b" strokeWidth="1.2"/>
       </g>)}
     </svg>
