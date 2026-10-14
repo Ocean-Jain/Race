@@ -26,7 +26,7 @@ export default function App() {
   const [server, setServer] = useState('');
   const [room, setRoom] = useState(''), [name, setName] = useState('Racer'), [status, setStatus] = useState('disconnected');
   const [latency, setLatency] = useState(null), [joined, setJoined] = useState(false), [playerName, setPlayerName] = useState('Racer');
-  const [ready, setReady] = useState(false), [nitro, setNitro] = useState(100), [sensitivity, setSensitivity] = useState(1);
+  const [ready, setReady] = useState(false), [nitro, setNitro] = useState(100), [sensitivity, setSensitivity] = useState(1.6);
   const [readyPending, setReadyPending] = useState(false), [steerTrackWidth, setSteerTrackWidth] = useState(0);
   const [smoothness, setSmoothness] = useState(0.2), [threshold, setThreshold] = useState(2.8), [vibrate, setVibrate] = useState(true);
   const [camera, setCamera] = useState(false), [permission, requestPermission] = useCameraPermissions(), [error, setError] = useState('');
@@ -90,7 +90,8 @@ export default function App() {
       // A small dead zone prevents sensor bias from slowly steering the car.
       const rate = Math.abs(z) > 0.035 ? z : 0;
       gyroAngle.current = Math.max(-0.72, Math.min(0.72, gyroAngle.current + rate * 0.025));
-      const target = Math.max(-1, Math.min(1, gyroAngle.current / 0.72 * sensitivity));
+      // In the landscape driving grip, rolling the phone left must steer left.
+      const target = Math.max(-1, Math.min(1, -gyroAngle.current / 0.72 * sensitivity));
       smooth.current += (target - smooth.current) * (1 - smoothness);
       steer.current = smooth.current;
     });

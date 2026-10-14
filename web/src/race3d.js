@@ -331,10 +331,16 @@ export class Race3D {
       input = sample && performance.now() - sample.receivedAt < 320 ? sample.input : { steer: 0, throttle: 0, brake: false, jump: false, nitro: false };
     }
     const seconds = Math.min(dt / 1000, 0.04);
-    const boosting = input.nitro && car.nitro > 0;
-    car.speed += (input.throttle * (boosting ? 150 : 84) - (input.brake ? 125 : 11)) * seconds;
-    if (!input.throttle && !input.brake) car.speed *= Math.pow(0.991, seconds * 60);
-    car.speed = THREE.MathUtils.clamp(car.speed, -35, boosting ? 165 : 112);
+    const boosting = input.nitro && input.throttle > 0 && car.nitro > 0;
+    if (input.throttle > 0 && !input.brake) {
+      // A gentler throttle ramp keeps acceleration controllable on the small track.
+      car.speed += (boosting ? 92 : 46) * input.throttle * seconds;
+    } else {
+      // Coasting and braking bring the car to a stop instead of creating reverse speed.
+      const deceleration = input.brake ? 96 : 24;
+      car.speed = Math.max(0, car.speed - deceleration * seconds);
+    }
+    car.speed = THREE.MathUtils.clamp(car.speed, 0, boosting ? 150 : 112);
     if (boosting) car.nitro = Math.max(0, car.nitro - 28 * seconds);
     car.yaw += input.steer * seconds * (0.45 + Math.min(Math.abs(car.speed) / 85, 1.15)) * Math.sign(car.speed || 1);
     car.x += Math.sin(car.yaw) * car.speed * seconds;
@@ -343,9 +349,9 @@ export class Race3D {
     if (radius < INNER_EDGE + 8 || radius > OUTER_EDGE - 8) {
       const edge = radius < INNER_EDGE + 8 ? INNER_EDGE + 8 : OUTER_EDGE - 8;
       const scale = edge / Math.max(radius, 0.001);
-      car.x *= scale; car.z *= scale; car.speed *= -0.16;
+      car.x *= scale; car.z *= scale; car.speed *= 0.16;
     }
-    for (const obstacle of this.obstacles) if (Math.hypot(car.x - obstacle.x, car.z - obstacle.z) < 8) car.speed *= -0.28;
+    for (const obstacle of this.obstacles) if (Math.hypot(car.x - obstacle.x, car.z - obstacle.z) < 8) car.speed *= 0.28;
     if (input.jump && car.jump <= 0) car.jump = 0.72;
     car.jump = Math.max(0, car.jump - seconds);
     const bob = car.jump ? Math.sin((0.72 - car.jump) / 0.72 * Math.PI) * 2.2 : 0;

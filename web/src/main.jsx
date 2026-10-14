@@ -23,6 +23,26 @@ function MiniMap({ players }) {
   </div>;
 }
 
+function Dashboard({ player }) {
+  const speed = Math.max(0, Math.min(120, player?.speed || 0));
+  const needle = -90 + speed / 120 * 180;
+  const nitro = Math.max(0, Math.min(100, player?.nitro ?? 100));
+  return <div className="dashboard-shell" aria-label={`Car dashboard, ${speed} kilometers per hour`}>
+    <div className="dashboard-panel">
+      <div className="dash-readout"><small>GEAR</small><strong>{speed ? 'D' : 'N'}</strong><span>SPORT</span></div>
+      <div className="speedometer">
+        <svg viewBox="0 0 120 76" aria-hidden="true">
+          <path className="gauge-track" d="M18 66 A42 42 0 1 1 102 66"/>
+          <path className="gauge-active" d="M18 66 A42 42 0 1 1 102 66" pathLength="100" style={{ strokeDasharray:`${speed / 120 * 100} 100` }}/>
+          <g transform={`rotate(${needle} 60 65)`}><path className="gauge-needle" d="M60 65 L60 27"/><circle className="gauge-hub" cx="60" cy="65" r="3.5"/></g>
+        </svg>
+        <div className="speed-digital"><strong>{speed}</strong><span>KM/H</span></div>
+      </div>
+      <div className="dash-readout dash-boost"><small>NITRO</small><strong>{Math.round(nitro)}<i>%</i></strong><div className="dash-meter"><i style={{ width:`${nitro}%` }}/></div></div>
+    </div>
+  </div>;
+}
+
 function App() {
   const stageRef = useRef(null), gameRef = useRef(null), wsRef = useRef(null);
   const finishedRef = useRef(false);
@@ -108,7 +128,7 @@ function App() {
       <p>Turn your phone into a steering wheel. Join the room, lean into the corners, and race your friends on the big screen.</p>
       <button className="primary" onClick={connect}>Create a race room <span>↗</span></button>
       <div className="features"><span>◉ Tilt steering</span><span>⌁ Multiplayer</span><span>ϟ Nitro pickups</span></div>
-      <div className="connect-note">Browser connects to <code>{WS}</code><br/>Each racer gets a hood-level first-person camera when the race starts.</div>
+      <div className="connect-note">Browser connects to <code>{WS}</code><br/>Each racer gets a first-person cockpit view and dashboard when the race starts.</div>
     </section>}
     {phase === 'lobby' && <section className="lobby">
       <div className="lobby-title"><div><div className="eyebrow">ROOM READY</div><h1>Get your crew<br/><em>on the grid.</em></h1></div><div className="room-pill"><small>ROOM CODE</small><strong>{room}</strong></div></div>
@@ -130,10 +150,11 @@ function App() {
             {racers.map(player => { const live = hudById.get(player.id); return <div className="race-player-cell" key={player.id}>
               <div className="cell-name"><i style={{background:live?.color || player.color}}/><span>{live?.name || player.name}</span></div>
               <div className="cell-stats"><b>{live?.speed ?? 0}<small> km/h</small></b><span>{live?.score ?? 0} pts</span><div className="cell-meter"><i style={{width:`${live?.nitro ?? player.nitro ?? 100}%`}}/></div></div>
+              <Dashboard player={live}/>
             </div>; })}
           </div>
           <MiniMap players={hud.filter(player => player.id !== 'keyboard' || keyboardOn)}/>
-          <div className="three-caption"><span>WASD / arrows · Accelerate · Brake · Nitro · Jump</span><span>HOOD CAM · SPLIT VIEW</span></div>
+          <div className="three-caption"><span>WASD / arrows · Accelerate · Brake · Nitro · Jump</span><span>COCKPIT CAM · SPLIT VIEW</span></div>
         </div>
         <div className="hud-list">{hud.map((player,i) => <div className="hud-item" key={player.id}><i style={{background:player.color || `#${PLAYER_COLORS[i % PLAYER_COLORS.length].toString(16)}`}}/><div className="hud-name"><b>{player.name}</b><small>{player.connected ? 'ONLINE' : 'OFFLINE'} · {player.latency ?? '—'} ms</small></div><div className="meter"><span style={{width:`${player.nitro}%`}}/></div><strong>{player.score} pts</strong></div>)}</div>
       </> : <div className="finish-panel"><div className="eyebrow">CHECKERED FLAG</div><h2>That’s the round.</h2>{[...hud].sort((a,b) => b.score-a.score).map((player,i) => <div className="finish-player" key={player.id}><b>#{i+1}　{player.name}</b><span>{player.score} pts</span></div>)}</div>}

@@ -5,7 +5,7 @@ TiltRace is a small multiplayer arcade racer. A browser runs the race and create
 ## Architecture and stack
 
 - **Server:** Node.js and `ws`. It creates eight-character room codes, issues per-player session IDs, tracks readiness and latency, relays bounded controller input, and owns each player's nitro balance. The browser reports car positions at 16 Hz; the server checks those positions against fixed recharge zones and sends validated nitro pickup events.
-- **Browser:** React + Three.js. A shared 3D scene is rendered through a separate hood-level first-person camera for each racer. Each viewport hides its own car while showing the other cars and their visible drivers, with a circular road, track barriers, nitro recharge pads, a translucent minimap, a timer, and a keyboard driver.
+- **Browser:** React + Three.js. A shared 3D scene is rendered through a separate first-person cockpit camera for each racer. Each viewport hides its own car while showing the other cars and their visible drivers, with a dashboard speedometer, circular road, track barriers, nitro recharge pads, a translucent minimap, a timer, and a keyboard driver.
 - **Phone:** React Native with Expo SDK 57 and React Native 0.86. Expo Sensors, Camera, Haptics, and AsyncStorage provide motion, QR scanning, feedback, and reconnect persistence while keeping Android builds reproducible without private signing credentials. SDK 57 follows Expo's current stable React Native and React pairing ([SDK reference](https://docs.expo.dev/versions/latest/)).
 
 The landscape controller streams normalized steering, gyro samples, and button state at 30 Hz. The server accepts at most 50 input updates per second per player and broadcasts inputs to the browser. The browser simulates cars locally at up to 60 frames per second and reports position snapshots every 60 ms. Steering smoothing and neutral calibration run on the phone. Latency is measured as round-trip time from server ping to phone reply, then shared with the browser and shown on both screens. Wi-Fi, device load, and browser scheduling can all add delay; WebSockets do not remove network latency.
@@ -61,7 +61,8 @@ For local play, the laptop browser and phones must be able to reach each other o
 
 ## Controls and round flow
 
-- Join in portrait; the controller locks to landscape after connecting. Rotate the phone left/right like a steering wheel to steer, then tap **Calibrate** to recenter. Steering uses the gyroscope with a small dead zone and smoothing. Change steering sensitivity in the controller settings.
+- Join in portrait; the controller locks to landscape after connecting. Rotate the phone left/right like a steering wheel to steer, then tap **Calibrate** to recenter. Steering uses the gyroscope with a small dead zone and smoothing, with a higher default sensitivity. Change steering sensitivity in the controller settings.
+- Cars accelerate only while **Accelerate** is held. Releasing it lets the car coast to a stop; **Brake** slows the car without putting it into reverse. Throttle acceleration has been reduced for more gradual speed buildup.
 - Hold **Accelerate** to drive; hold **Brake** to slow down. On-screen feedback shows connection state and measured ping.
 - Shake the phone beyond the configurable threshold to trigger a short jump. A 1.4 second cooldown limits accidental retriggers.
 - Press **Nitro** to consume a server-issued boost charge. The glowing green pads along the track recharge up to 35 points each, subject to a server-side 1.5 second pickup cooldown. Haptics can be disabled in the controller.
