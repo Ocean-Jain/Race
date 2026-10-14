@@ -26,7 +26,7 @@ export default function App() {
   const [server, setServer] = useState('');
   const [room, setRoom] = useState(''), [name, setName] = useState('Racer'), [status, setStatus] = useState('disconnected');
   const [latency, setLatency] = useState(null), [joined, setJoined] = useState(false), [playerName, setPlayerName] = useState('Racer');
-  const [ready, setReady] = useState(false), [nitro, setNitro] = useState(100), [sensitivity, setSensitivity] = useState(1.6);
+  const [ready, setReady] = useState(false), [nitro, setNitro] = useState(100), [sensitivity, setSensitivity] = useState(3.0);
   const [readyPending, setReadyPending] = useState(false), [steerTrackWidth, setSteerTrackWidth] = useState(0);
   const [smoothness, setSmoothness] = useState(0.2), [threshold, setThreshold] = useState(2.8), [vibrate, setVibrate] = useState(true);
   const [camera, setCamera] = useState(false), [permission, requestPermission] = useCameraPermissions(), [error, setError] = useState('');

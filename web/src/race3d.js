@@ -168,12 +168,14 @@ export class Race3D {
     const checkpointWhite = new THREE.MeshStandardMaterial({ color: 0xe9f6ef, roughness: 0.72 });
     for (let row = 0; row < 2; row++) for (let col = 0; col < 14; col++) {
       const tile = new THREE.Mesh(square, (row + col) % 2 ? checkpointBlue : checkpointWhite);
-      tile.position.set(-63 + col * 9, 0.15, TRACK_RADIUS - 4.5 + row * 9);
+      // At the south side, racers travel east/west, so the checkpoint stripe
+      // spans the road's north/south width and crosses the racing line at 90°.
+      tile.position.set(-4.5 + row * 9, 0.15, INNER_EDGE + 8 + col * 9);
       this.scene.add(tile);
     }
     const gatePost = new THREE.Mesh(new THREE.BoxGeometry(2.6, 8, 2.6), checkpointBlue);
-    for (const x of [-70, 70]) { const post = gatePost.clone(); post.position.set(x, 4, TRACK_RADIUS); this.scene.add(post); }
-    const gateTop = new THREE.Mesh(new THREE.BoxGeometry(142, 2.8, 2.8), checkpointBlue);
+    for (const z of [INNER_EDGE - 4, OUTER_EDGE + 4]) { const post = gatePost.clone(); post.position.set(0, 4, z); this.scene.add(post); }
+    const gateTop = new THREE.Mesh(new THREE.BoxGeometry(2.8, 2.8, 142), checkpointBlue);
     gateTop.position.set(0, 8, TRACK_RADIUS); this.scene.add(gateTop);
 
     const infield = new THREE.Mesh(new THREE.CircleGeometry(INNER_EDGE - 2, 160), new THREE.MeshStandardMaterial({ color: 0x54794b, map: grass, roughness: 1 }));
@@ -390,8 +392,9 @@ export class Race3D {
     const trackAssist = car.driveStarted && !firstThrottleFrame
       ? THREE.MathUtils.clamp(wrappedAngleDelta(car.yaw, trackHeading) * 22, -0.35, 0.35)
       : 0;
+    const steeringGain = car.id === 'keyboard' ? 1 : 2.6;
     const steering = car.driveStarted && !firstThrottleFrame
-      ? THREE.MathUtils.clamp(input.steer + trackAssist, -1, 1)
+      ? THREE.MathUtils.clamp(input.steer * steeringGain + trackAssist, -1, 1)
       : 0;
     const boosting = input.nitro && input.throttle > 0 && car.nitro > 0;
     if (input.throttle > 0 && !input.brake) {
