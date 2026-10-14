@@ -56,12 +56,12 @@ function onMessage(ws, raw) {
     const resume = typeof m.playerId === 'string' && room.players.get(m.playerId);
     if (resume && Date.now() - resume.disconnectedAt < SESSION_TTL) {
       resume.ws?.close(); resume.ws = ws; resume.disconnectedAt = null; clients.set(ws, { role: 'player', room, playerId: resume.id });
-      send(ws, 'joined', { playerId: resume.id, name: resume.name, resumed: true, state: roomSnapshot(room) }); announce(room); return;
+      send(ws, 'joined', { playerId: resume.id, name: resume.name, resumed: true, browserConnected: room.browsers.size > 0, state: roomSnapshot(room) }); announce(room); return;
     }
     if (room.players.size >= 8) return send(ws, 'error', { message: 'Room is full (8 racers maximum).' });
     const player = { id: randomUUID(), name: safeName(m.name), ws, ready: false, latency: null, nitro: 100, score: 0, input: { steer: 0, throttle: 0, brake: false, jump: false, nitro: false }, lastInputAt: 0, disconnectedAt: null };
     room.players.set(player.id, player); clients.set(ws, { role: 'player', room, playerId: player.id });
-    send(ws, 'joined', { playerId: player.id, name: player.name, resumed: false, state: roomSnapshot(room) }); announce(room); return;
+    send(ws, 'joined', { playerId: player.id, name: player.name, resumed: false, browserConnected: room.browsers.size > 0, state: roomSnapshot(room) }); announce(room); return;
   }
   if (!context) return send(ws, 'error', { message: 'Join or create a room first.' });
   const { room } = context;
@@ -88,7 +88,11 @@ function onMessage(ws, raw) {
   }
   if (context.role === 'player') {
     const p = room.players.get(context.playerId); if (!p || p.ws !== ws) return send(ws, 'error', { message: 'Session expired. Rejoin the room.' });
-    if (m.type === 'ready') { p.ready = !!m.ready; announce(room); return; }
+    if (m.type === 'ready') {
+      p.ready = !!m.ready;
+      send(ws, 'readyAck', { requestId: typeof m.requestId === 'string' ? m.requestId.slice(0, 64) : null, playerId: p.id, ready: p.ready });
+      announce(room); return;
+    }
     if (m.type === 'input') {
       const now = Date.now(); if (now - p.lastInputAt < 20) return; p.lastInputAt = now;
       const i = m.input || {}; p.input = { steer: clamp(i.steer, -1, 1), throttle: clamp(i.throttle, 0, 1), brake: !!i.brake, jump: !!i.jump, nitro: !!i.nitro && p.nitro > 0, gyro: { x: clamp(i.gyro?.x, -20, 20), y: clamp(i.gyro?.y, -20, 20), z: clamp(i.gyro?.z, -20, 20) } };

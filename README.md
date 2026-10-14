@@ -76,12 +76,12 @@ Messages are JSON objects with a `type` field. The server limits message payload
 | --- | --- | --- |
 | Browser → server | `create` | Create a lobby; server responds `created` with room code. |
 | Phone → server | `join` | Join by room code and optional stored `playerId` for session resume. |
-| Phone → server | `ready` | Set player readiness. |
+| Phone → server | `ready` | Set player readiness with a request ID; server replies `readyAck` and broadcasts the updated room roster. |
 | Phone → server | `input` | `{input:{steer,throttle,brake,jump,nitro,gyro:{x,y,z}}}`; steering is -1…1, throttle 0…1, and gyro axes are bounded by the server. |
 | Phone ↔ server | `ping`, `pong` | Server pings phones every 2 seconds; client echoes ID and server timestamp for RTT. Phones also ping to keep their live display current. |
 | Browser → server | `start`, `restart` | Begin a round or return to lobby. |
 | Browser → server | `state` | Position snapshots for server-checked recharge zones; snapshots are throttled at 16 Hz. |
-| Server → clients | `room`, `control`, `gameState`, `nitro`, `recharge` | Lobby/player state, controls, scores, and authoritative nitro updates. |
+| Server → clients | `room`, `control`, `gameState`, `nitro`, `recharge`, `readyAck`, `browserGone` | Lobby/player state, controls, scores, authoritative nitro updates, readiness confirmation, and race-page disconnect notices. |
 
 Disconnected player records are retained for 60 seconds. The controller stores the room, server address, display name, and player ID locally, reconnects with exponential backoff, and reuses the ID when the session is still present. A room is removed after the browser and all player sessions have gone away.
 
@@ -89,6 +89,7 @@ Disconnected player records are retained for 60 seconds. The controller stores t
 
 - **Connection refused:** confirm the server is running, use the laptop's LAN IP rather than `localhost` on the phone for local play, and allow port 3001 through the private-network firewall. For internet play, use the deployed `wss://` host.
 - **QR scan filled no room:** confirm it is the room QR displayed by TiltRace. You can type the eight-character code instead.
+- **Phone says the race page disconnected:** the browser page refreshed or lost its WebSocket. Create a new room in the browser and scan its new QR code; an old room cannot reconnect to a newly created browser room.
 - **Local devices on Wi-Fi cannot connect:** disable guest Wi-Fi/client isolation or connect both devices to the same non-isolated subnet. Public hosting avoids this restriction.
 - **No motion input:** ensure Expo Go or the installed app has motion access, check the device has an accelerometer, and recalibrate while the phone is held level. Sensor availability varies by hardware. Camera access is only needed to scan; room-code entry does not require it.
 - **Transport:** local development uses `ws://`; public deployment uses HTTPS and `wss://`. Browsers require a secure context for web sensor APIs; the phone app uses native sensors. Do not expose the local development server directly to the public internet.

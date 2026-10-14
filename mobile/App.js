@@ -31,19 +31,22 @@ export default function App() {
   const [displaySteer, setDisplaySteer] = useState(0), [sensorOk, setSensorOk] = useState(true);
 
   const ws = useRef(null), retryCount = useRef(0), closedByUser = useRef(false), playerId = useRef('');
-  const timers = useRef({ input: null, ping: null, retry: null });
+  const timers = useRef({ input: null, ping: null, retry: null, ready: null });
   const steer = useRef(0), gyroAngle = useRef(0);
+  const readyRequestId = useRef('');
   const gyro = useRef({ x: 0, y: 0, z: 0 }), smooth = useRef(0), shakeAt = useRef(0);
   const controls = useRef({ throttle: 0, brake: false, nitro: false }), latencyMap = useRef(new Map());
 
   function clearNetworkTimers() {
-    clearInterval(timers.current.input); clearInterval(timers.current.ping); clearTimeout(timers.current.retry);
-    timers.current.input = null; timers.current.ping = null; timers.current.retry = null;
+    clearInterval(timers.current.input); clearInterval(timers.current.ping); clearTimeout(timers.current.retry); clearTimeout(timers.current.ready);
+    timers.current.input = null; timers.current.ping = null; timers.current.retry = null; timers.current.ready = null;
   }
 
   function send(message) {
     const socket = ws.current;
-    if (socket?.readyState === WebSocket.OPEN && socket.bufferedAmount < 4096) socket.send(JSON.stringify(message));
+    if (socket?.readyState !== WebSocket.OPEN || socket.bufferedAmount >= 4096) return false;
+    socket.send(JSON.stringify(message));
+    return true;
   }
 
   function sendInput(extra = {}) {
@@ -116,6 +119,10 @@ export default function App() {
       socket.onmessage = event => {
         let message; try { message = JSON.parse(event.data); } catch { return; }
         if (message.type === 'joined') {
+          if (message.browserConnected === false) {
+            setError('The race page has disconnected. Reopen it, create a new room, and scan its new QR code.');
+            closedByUser.current = true; clearNetworkTimers(); socket.close(); return;
+          }
           setJoined(true); playerId.current = message.playerId; setPlayerName(message.name);
           setReadyPending(false);
           setReady(message.state?.players?.find(p => p.id === message.playerId)?.ready || false);
@@ -125,6 +132,10 @@ export default function App() {
           const sent = latencyMap.current.get(message.id);
           if (sent) { setLatency(Date.now() - sent); latencyMap.current.delete(message.id); }
         }
+        if (message.type === 'readyAck' && message.playerId === playerId.current && message.requestId === readyRequestId.current) {
+          clearTimeout(timers.current.ready); timers.current.ready = null; readyRequestId.current = '';
+          setReady(!!message.ready); setReadyPending(false);
+        }
         if (message.type === 'ping') socket.send(JSON.stringify({ type: 'pong', id: message.id, sentAt: message.sentAt }));
         if (message.type === 'nitro' || message.type === 'recharge') {
           setNitro(message.nitro);
@@ -132,18 +143,25 @@ export default function App() {
         }
         if (message.type === 'room') {
           const player = message.state.players.find(item => item.id === playerId.current);
-          if (player) { setReady(player.ready); setReadyPending(false); setNitro(player.nitro); if (player.latency !== null) setLatency(player.latency); }
+          if (player) { setReady(player.ready); setNitro(player.nitro); if (player.latency !== null) setLatency(player.latency); }
+        }
+        if (message.type === 'browserGone') {
+          setError('The race page disconnected. Reopen it, create a new room, and scan its new QR code.');
+          closedByUser.current = true; clearNetworkTimers(); setJoined(false); setStatus('disconnected');
+          setReadyPending(false); readyRequestId.current = ''; playerId.current = '';
+          AsyncStorage.removeItem('playerId'); socket.close();
         }
         if (message.type === 'error') {
-          setError(message.message); setReadyPending(false);
+          setError(message.message); setReadyPending(false); readyRequestId.current = ''; clearTimeout(timers.current.ready);
           if (message.message.includes('Room not found') || message.message.includes('Session expired')) {
-            setJoined(false); playerId.current = ''; AsyncStorage.removeItem('playerId');
+            setJoined(false); setStatus('disconnected'); playerId.current = ''; AsyncStorage.removeItem('playerId');
+            closedByUser.current = true; clearNetworkTimers(); socket.close();
           }
         }
       };
       socket.onerror = () => setError('Connection failed. Check the server address and your internet connection.');
       socket.onclose = () => {
-        clearNetworkTimers(); setStatus('disconnected'); setReadyPending(false);
+        clearNetworkTimers(); setStatus('disconnected'); setReadyPending(false); readyRequestId.current = '';
         if (!closedByUser.current) {
           setStatus('reconnecting');
           const delay = Math.min(10000, 600 * 2 ** retryCount.current++);
@@ -161,7 +179,7 @@ export default function App() {
   function disconnect() {
     closedByUser.current = true; clearNetworkTimers(); ws.current?.close(); setJoined(false); setStatus('disconnected');
     controls.current = { throttle: 0, brake: false, nitro: false };
-    setReadyPending(false);
+    setReadyPending(false); readyRequestId.current = '';
   }
 
   function calibrate() {
@@ -172,8 +190,19 @@ export default function App() {
 
   function toggleReady() {
     if (!joined || ws.current?.readyState !== WebSocket.OPEN || readyPending) return;
-    const next = !ready; setReady(next); send({ type: 'ready', ready: next });
+    const next = !ready, requestId = `${Date.now()}-${Math.random().toString(16).slice(2)}`;
+    if (!send({ type: 'ready', ready: next, requestId })) {
+      setError('Could not send readiness to the race server. Check the connection and try again.');
+      return;
+    }
+    readyRequestId.current = requestId;
     setReadyPending(true);
+    clearTimeout(timers.current.ready);
+    timers.current.ready = setTimeout(() => {
+      if (readyRequestId.current !== requestId) return;
+      readyRequestId.current = ''; setReadyPending(false);
+      setError('The server did not confirm Ready. Reconnect to the race room and try again.');
+    }, 5000);
     if (vibrate) Haptics.selectionAsync();
   }
 
