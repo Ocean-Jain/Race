@@ -53,8 +53,6 @@ body::before{content:"";position:fixed;inset:-18%;z-index:-1;pointer-events:none
 .server{color:#9ba8b7}.server.online{color:#d2ece7}.server i{background:linear-gradient(135deg,#ffbd68,#fb7185);box-shadow:0 0 12px #fb718566}.server.online i{background:linear-gradient(135deg,#a6ffae,#31e9c6);box-shadow:0 0 7px #59f0c4,0 0 17px #3ce3ca88}
 .eyebrow{color:#87e9d9;font-size:10px;letter-spacing:2.3px}
 .welcome{position:relative;max-width:650px;padding:clamp(54px,9vh,96px) 0 60px}
-.formula-car-watermark{position:absolute;z-index:0;top:-74px;right:-505px;width:min(620px,57vw);height:auto;overflow:visible;color:#68ebdc;opacity:.1;pointer-events:none;filter:drop-shadow(0 0 8px #00ffcc26);mask-image:linear-gradient(90deg,transparent 0%,#000 12%,#000 88%,transparent 100%)}
-.welcome>:not(.formula-car-watermark){position:relative;z-index:1}
 .welcome h1,.lobby h1{color:#f4f7fb;letter-spacing:.2px;text-shadow:0 8px 42px #0008}
 .welcome h1 em,.lobby h1 em,.race-head em{background:linear-gradient(100deg,#7cf3c3 2%,#48e5d4 48%,#83b9ff 100%);background-clip:text;-webkit-background-clip:text;color:transparent;filter:drop-shadow(0 4px 18px #48dfc424)}
 .welcome p{color:#aab5c4;max-width:490px}
@@ -91,8 +89,6 @@ body::before{content:"";position:fixed;inset:-18%;z-index:-1;pointer-events:none
 .lobby-foot{color:#8996a5;font:9px/1.8 'DM Mono',monospace;letter-spacing:.3px}.lobby-foot b{color:#c7e6df}
 footer{border-top-color:#d4e4ff12;color:#a4b1c0}.footer-brandline{display:flex;align-items:center;gap:14px}.footer-wordmark{display:flex;align-items:baseline;font:700 12px 'Barlow Condensed',sans-serif;letter-spacing:1px;color:#a4b1c0}.footer-wordmark .accent{color:inherit}.footer-wordmark small{font:8px 'DM Mono',monospace;color:#788595;margin-left:9px;letter-spacing:.5px}.footer-car-glyphs{display:flex;align-items:center;gap:5px;color:#788595}.footer-car-glyphs svg{width:30px;height:17px;fill:none;stroke:currentColor;stroke-width:1.25;stroke-linecap:round;stroke-linejoin:round;opacity:.9}.footer-signoff{font:9px 'DM Mono',monospace;color:#788595}
 @keyframes ambient-drift{from{transform:translate3d(-1.2%,.6%,0) scale(1)}to{transform:translate3d(1.2%,-.6%,0) scale(1.06)}}
-@media(max-width:820px){.formula-car-watermark{right:-350px;width:520px;opacity:.08}}
 @media(max-width:820px){.track-watermark{width:112vw;transform:translate(-34%,-50%);opacity:.11}}
-@media(max-width:700px){.formula-car-watermark{display:none}}
 @media(max-width:650px){.welcome{padding:54px 0 44px}.track-watermark{top:40%;width:150vw;transform:translate(-34%,-50%);opacity:.08}.features{gap:7px}.features span{padding:7px 9px;font-size:10px}.lobby{margin-top:28px}.lobby-title{gap:14px}.room-pill{min-width:120px;padding:11px 12px}.room-pill strong{font-size:18px;letter-spacing:3px}.pair-grid{gap:12px}.qr-panel,.players-panel{border-radius:11px}.qr-panel{padding:15px}.empty-car-art{width:min(224px,76%);max-height:126px}.empty-state{padding-top:0}.lobby-actions .primary{flex:1}.lobby-actions .secondary{flex:1}.footer-brandline{gap:8px}.footer-car-glyphs{gap:2px}.footer-car-glyphs svg{width:23px;height:14px}.footer-wordmark small{font-size:7px;margin-left:6px}.footer-signoff{display:none}}
 @media(prefers-reduced-motion:reduce){body::before{animation:none}.primary,.secondary,.copy,.qr-panel,.players-panel,.racer{transition:none}}
