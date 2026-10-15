@@ -2,10 +2,16 @@ import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { createRoot } from 'react-dom/client';
 import QRCode from 'qrcode';
 import { Race3D, viewColumns } from './race3d.js';
+import { TRACKS, sampleTrack } from '../../shared/tracks.js';
 import './style.css';
 
 const WS = import.meta.env.VITE_WS_URL || (location.protocol === 'https:' ? `wss://${location.host}` : `ws://${location.hostname}:3001`);
 const PLAYER_COLORS = [0x38d9ff,0xff6c5c,0xc084fc,0xffcb45,0x72e394,0xff78bd,0x8ba5ff,0xff925c];
+const CIRCUITS = TRACKS;
+
+function CircuitGlyph({ circuit }) {
+  return <svg viewBox="0 0 220 100" aria-hidden="true"><path d={circuit.mapPath} transform={circuit.id === 'suzuka' ? 'translate(0 10) scale(1 .67)' : undefined}/></svg>;
+}
 
 function EmptyGridCar() {
   return <svg className="empty-car-art" viewBox="0 0 280 156" aria-hidden="true">
@@ -49,16 +55,24 @@ function TrackWatermark() {
   </svg>;
 }
 
-function MiniMap({ players }) {
-  const figureEight = 'M 28 80 C 28 30 88 28 110 80 C 132 132 192 130 192 80 C 192 30 132 28 110 80 C 88 132 28 130 28 80';
+function MiniMap({ players, trackId }) {
+  const circuit = CIRCUITS.find(item => item.id === trackId) || CIRCUITS[0];
+  const mapPoint = point => ({ x: 110 + point.x * .25, y: 50 + point.z * .17 });
+  const trackPath = Array.from({ length: 161 }, (_, index) => {
+    const point = mapPoint(sampleTrack(trackId, Math.PI * 2 * index / 160));
+    return `${index ? 'L' : 'M'}${point.x.toFixed(1)} ${point.y.toFixed(1)}`;
+  }).join(' ') + ' Z';
+  const start = sampleTrack(trackId, -Math.PI / 2);
+  const before = sampleTrack(trackId, -Math.PI / 2 - 0.001), after = sampleTrack(trackId, -Math.PI / 2 + 0.001);
+  const finishAngle = Math.atan2(after.z - before.z, after.x - before.x) * 180 / Math.PI + 90;
   return <div className="minimap" aria-label="Live race map">
-    <div className="minimap-heading">TRACK MAP <span>LIVE</span></div>
-    <svg viewBox="0 0 220 160" role="img" aria-label="Figure-eight race track and racer positions">
-      <path d={figureEight} className="map-track-outer"/>
-      <path d={figureEight} className="map-track-inner"/>
-      <path d={figureEight} className="map-track-dash"/>
-      <path d="M18 74h20v12H18z M182 74h20v12h-20z" className="map-finish"/>
-      {players.map(player => <g key={player.id} transform={`translate(${110 + player.x * .24} ${80 + player.z * .25}) rotate(${player.yaw * 180 / Math.PI})`}>
+    <div className="minimap-heading">{circuit.name.toUpperCase()} <span>LIVE</span></div>
+    <svg viewBox="0 0 220 100" role="img" aria-label={`${circuit.name} track map and racer positions`}>
+      <path d={trackPath} className="map-track-outer"/>
+      <path d={trackPath} className="map-track-inner"/>
+      <path d={trackPath} className="map-track-dash"/>
+      <rect x={110 + start.x * .25 - 8} y={50 + start.z * .17 - 2} width="16" height="4" rx="1" className="map-finish" transform={`rotate(${finishAngle} ${110 + start.x * .25} ${50 + start.z * .17})`}/>
+      {players.map(player => <g key={player.id} transform={`translate(${110 + (player.x - 600) * .25} ${50 + (player.z - 470) * .17}) rotate(${player.yaw * 180 / Math.PI})`}>
         <path d="M0 -8 L4.5 5 L0 2.5 L-4.5 5 Z" fill={player.color || '#ffffff'} stroke="#06131b" strokeWidth="1.2"/>
       </g>)}
     </svg>
@@ -90,6 +104,7 @@ function App() {
   const stageRef = useRef(null), gameRef = useRef(null), wsRef = useRef(null);
   const finishedRef = useRef(false);
   const [room,setRoom] = useState(''), [players,setPlayers] = useState([]), [phase,setPhase] = useState('welcome');
+  const [trackId,setTrackId] = useState('silverstone');
   const [qr,setQr] = useState(''), [hud,setHud] = useState([]), [error,setError] = useState('');
   const [connected,setConnected] = useState(false), [timer,setTimer] = useState(0), [keyboardOn,setKeyboardOn] = useState(false);
 
@@ -97,9 +112,9 @@ function App() {
   useEffect(() => {
     const stage = stageRef.current;
     if (phase !== 'racing' || !stage) return;
-    const game = new Race3D(stage); gameRef.current = game;
+    const game = new Race3D(stage, trackId); gameRef.current = game;
     return () => { game.destroy(); gameRef.current = null; };
-  }, [phase === 'racing']);
+  }, [phase === 'racing', trackId]);
 
   const racers = useMemo(() => [
     ...players.map((player, i) => ({ ...player, color: `#${PLAYER_COLORS[i % PLAYER_COLORS.length].toString(16).padStart(6, '0')}` })),
@@ -131,12 +146,13 @@ function App() {
     ws.onmessage = event => {
       let message; try { message = JSON.parse(event.data); } catch { return; }
       if (message.type === 'created') {
-        setRoom(message.room); setPhase('lobby');
+        setRoom(message.room); setTrackId(message.state?.trackId || 'silverstone'); setPhase('lobby');
         const join = `tiltrace://join?server=${encodeURIComponent(WS)}&room=${message.room}`;
         QRCode.toDataURL(join, { width:210, margin:1, color:{ dark:'#08121c', light:'#ffffff' } }).then(setQr);
       }
       if (message.type === 'room') {
         setPlayers(message.state.players);
+        if (CIRCUITS.some(circuit => circuit.id === message.state.trackId)) setTrackId(message.state.trackId);
         if (message.state.phase === 'racing' && !finishedRef.current) setPhase('racing');
         if (message.state.phase === 'finished') { finishedRef.current = true; setPhase('finished'); }
         if (message.state.phase === 'lobby') { finishedRef.current = false; setPhase('lobby'); }
@@ -153,6 +169,11 @@ function App() {
     window.sendRoom?.({ type:'start', keyboard:keyboardOn });
     setTimer(0); setPhase('racing');
   }
+  function selectCircuit(id) {
+    if (phase !== 'lobby' || !CIRCUITS.some(circuit => circuit.id === id)) return;
+    setTrackId(id);
+    window.sendRoom?.({ type:'trackSelect', trackId:id });
+  }
   function restart() { finishedRef.current = false; window.sendRoom?.({ type:'restart' }); setTimer(0); setPhase('lobby'); }
   function addKeyboard() { setKeyboardOn(true); setError('Keyboard racer added: WASD or arrows to drive, Space for nitro, Shift to jump.'); }
 
@@ -160,6 +181,7 @@ function App() {
   const columns = viewColumns(Math.max(1, racers.length));
   const clock = phase === 'finished' ? 0 : 120 - timer;
   const finalResults = [...hud].sort((a, b) => b.score - a.score || (b.laps || 0) - (a.laps || 0) || a.name.localeCompare(b.name));
+  const activeCircuit = CIRCUITS.find(circuit => circuit.id === trackId) || CIRCUITS[0];
 
   return <main className="shell">
     <TrackWatermark/>
@@ -177,6 +199,13 @@ function App() {
     </section>}
     {phase === 'lobby' && <section className="lobby">
       <div className="lobby-title"><div><div className="eyebrow">ROOM READY</div><h1>Get your crew<br/><em>on the grid.</em></h1></div><div className="room-pill"><small>ROOM CODE</small><strong>{room}</strong></div></div>
+      <section className="track-picker" aria-label="Select race circuit">
+        <div className="track-picker-head"><div><div className="eyebrow">SELECT CIRCUIT</div><p>Choose the course for this room.</p></div><div className="active-circuit"><small>RACE CIRCUIT</small><strong><span>{activeCircuit.flag}</span>{activeCircuit.name}</strong></div></div>
+        <div className="track-grid">{CIRCUITS.map(circuit => <button type="button" className={`track-card ${trackId === circuit.id ? 'selected' : ''}`} key={circuit.id} onClick={() => selectCircuit(circuit.id)} aria-pressed={trackId === circuit.id}>
+          <div className="track-card-map"><CircuitGlyph circuit={circuit}/><span className="track-card-flag" aria-label={circuit.country}>{circuit.flag}</span></div>
+          <span className="track-card-country">{circuit.country}</span><strong>{circuit.name}</strong><span className="track-card-meta">{circuit.length}<i/> {circuit.corners}</span>
+        </button>)}</div>
+      </section>
       <div className="pair-grid">
         <div className="qr-panel"><div className="qrwrap">{qr && <img src={qr} alt={`QR code to join room ${room}`}/>}</div><h2>Scan to join</h2><p>Open your phone camera and point it at the code.</p><button className="copy" onClick={() => navigator.clipboard?.writeText(room)}>Copy room code</button></div>
         <div className={`players-panel ${players.length === 0 ? 'waiting-panel' : ''}`}><div className="panel-heading">PLAYERS <span>{players.length} / 8</span></div>
@@ -188,7 +217,7 @@ function App() {
       <p className="lobby-foot">QR server: <code>{WS}</code>. Scan to connect, then tap <b>Ready to race</b>.</p>
     </section>}
     {(phase === 'racing' || phase === 'finished') && <section className="race-view">
-      <div className="race-head"><div><div className="eyebrow">ROOM {room} · {racers.length} RACER{racers.length === 1 ? '' : 'S'}</div><h1>{phase === 'finished' ? <>Round <em>complete</em></> : <>Race <em>in progress</em></>}</h1></div><div className="race-tools"><span className="timer">⏱ {String(Math.floor(clock/60)).padStart(2,'0')}:{String(clock%60).padStart(2,'0')}</span><button className="secondary" onClick={restart}>↻ {phase === 'finished' ? 'Race again' : 'New round'}</button></div></div>
+      <div className="race-head"><div><div className="eyebrow">ROOM {room} · {activeCircuit.flag} {activeCircuit.name} · {racers.length} RACER{racers.length === 1 ? '' : 'S'}</div><h1>{phase === 'finished' ? <>Round <em>complete</em></> : <>Race <em>in progress</em></>}</h1></div><div className="race-tools"><span className="timer">⏱ {String(Math.floor(clock/60)).padStart(2,'0')}:{String(clock%60).padStart(2,'0')}</span><button className="secondary" onClick={restart}>↻ {phase === 'finished' ? 'Race again' : 'New round'}</button></div></div>
       {phase === 'racing' ? <>
         <div className="race-stage" ref={stageRef}>
           <div className="race-panels" style={{ '--view-columns':columns }}>
@@ -198,7 +227,7 @@ function App() {
               <Dashboard player={live}/>
             </div>; })}
           </div>
-          <MiniMap players={hud.filter(player => player.id !== 'keyboard' || keyboardOn)}/>
+          <MiniMap players={hud.filter(player => player.id !== 'keyboard' || keyboardOn)} trackId={trackId}/>
           <div className="three-caption"><span>WASD / arrows · Accelerate · Brake · Nitro · Jump</span><span>CHASE CAM · SPLIT VIEW</span></div>
         </div>
         <div className="hud-list">{hud.map((player,i) => <div className="hud-item" key={player.id}><i style={{background:player.color || `#${PLAYER_COLORS[i % PLAYER_COLORS.length].toString(16)}`}}/><div className="hud-name"><b>{player.name}</b><small>{player.connected ? 'ONLINE' : 'OFFLINE'} · {player.latency ?? '—'} ms</small></div><div className="meter"><span style={{width:`${player.nitro}%`}}/></div><strong>{player.score} pts</strong></div>)}</div>

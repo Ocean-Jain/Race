@@ -4,6 +4,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { randomBytes, randomUUID } from 'node:crypto';
 import { WebSocketServer, WebSocket } from 'ws';
+import { TRACKS, sampleTrack } from '../../shared/tracks.js';
 
 const PORT = Number(process.env.PORT || 3001);
 const HOST = process.env.HOST || '0.0.0.0';
@@ -12,12 +13,15 @@ const SESSION_TTL = 60_000;
 const TRACK_START_T = -Math.PI / 2;
 const RECHARGE_PROGRESS = [0.48, 1.32, 2.18, 3.05, 3.95, 4.88, 5.68];
 const RECHARGE_OFFSETS = [-21, 18, -16, 22, -20, 17, -14];
-const RECHARGE_ZONES = RECHARGE_PROGRESS.map((progress, index) => {
-  const t = TRACK_START_T + progress;
-  const dx = 340 * Math.cos(t), dz = 420 * Math.cos(2 * t), length = Math.hypot(dx, dz) || 1;
-  const nx = -dz / length, nz = dx / length, offset = RECHARGE_OFFSETS[index];
-  return [600 + 340 * Math.sin(t) + nx * offset, 470 + 210 * Math.sin(2 * t) + nz * offset];
-});
+function rechargeZones(trackId) {
+  return RECHARGE_PROGRESS.map((progress, index) => {
+    const t = TRACK_START_T + progress, before = sampleTrack(trackId, t - 0.001), after = sampleTrack(trackId, t + 0.001);
+    const dx = after.x - before.x, dz = after.z - before.z, length = Math.hypot(dx, dz) || 1;
+    const nx = -dz / length, nz = dx / length, offset = RECHARGE_OFFSETS[index];
+    const point = sampleTrack(trackId, t);
+    return [600 + point.x + nx * offset, 470 + point.z + nz * offset];
+  });
+}
 const rooms = new Map();
 const clients = new Map();
 const webRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../web/dist');
@@ -40,7 +44,7 @@ const wss = new WebSocketServer({ server, maxPayload: 4096, perMessageDeflate: f
 
 function code() { return randomBytes(4).toString('hex').toUpperCase(); }
 function roomSnapshot(room) {
-  return { room: room.code, phase: room.phase, startedAt: room.startedAt, players: [...room.players.values()].map(p => ({ id: p.id, name: p.name, ready: p.ready, connected: !!p.ws && p.ws.readyState === WebSocket.OPEN, latency: p.latency, nitro: p.nitro, score: p.score })) };
+  return { room: room.code, phase: room.phase, startedAt: room.startedAt, trackId: room.trackId, players: [...room.players.values()].map(p => ({ id: p.id, name: p.name, ready: p.ready, connected: !!p.ws && p.ws.readyState === WebSocket.OPEN, latency: p.latency, nitro: p.nitro, score: p.score })) };
 }
 function send(ws, type, data = {}) { if (ws?.readyState === WebSocket.OPEN) ws.send(JSON.stringify({ type, ...data })); }
 function broadcast(room, type, data = {}) { const packet = JSON.stringify({ type, ...data }); for (const ws of room.browsers) if (ws.readyState === WebSocket.OPEN) ws.send(packet); for (const p of room.players.values()) if (p.ws?.readyState === WebSocket.OPEN) p.ws.send(packet); }
@@ -54,7 +58,7 @@ function onMessage(ws, raw) {
   if (m.type === 'create') {
     if (context) return send(ws, 'error', { message: 'This connection already joined a room.' });
     let id; do { id = code(); } while (rooms.has(id));
-    const room = { code: id, browsers: new Set([ws]), players: new Map(), phase: 'lobby', startedAt: null, stateAt: 0, lastState: [] };
+    const room = { code: id, browsers: new Set([ws]), players: new Map(), phase: 'lobby', startedAt: null, trackId: 'silverstone', rechargeZones: rechargeZones('silverstone'), stateAt: 0, lastState: [] };
     rooms.set(id, room); clients.set(ws, { role: 'browser', room });
     return send(ws, 'created', { room: id, state: roomSnapshot(room) });
   }
@@ -77,6 +81,14 @@ function onMessage(ws, raw) {
   if (m.type === 'ping') return send(ws, 'pong', { id: m.id, sentAt: m.sentAt, serverAt: Date.now() });
   if (m.type === 'pong' && context.role === 'player') { const p = room.players.get(context.playerId); if (p && Number.isFinite(Number(m.sentAt))) { p.latency = Math.max(0, Math.min(9999, Date.now() - Number(m.sentAt))); announce(room); } return; }
   if (context.role === 'browser') {
+    if (m.type === 'trackSelect') {
+      if (room.phase !== 'lobby') return send(ws, 'error', { message: 'The circuit can only be changed in the lobby.' });
+      if (!TRACKS.some(track => track.id === m.trackId)) return send(ws, 'error', { message: 'Unknown circuit selection.' });
+      room.trackId = m.trackId;
+      room.rechargeZones = rechargeZones(m.trackId);
+      announce(room);
+      return;
+    }
     if (m.type === 'start') { if (room.players.size < 1 && !m.keyboard) return send(ws, 'error', { message: 'At least one phone or keyboard racer is required.' }); room.phase = 'racing'; room.startedAt = Date.now(); announce(room); return; }
     if (m.type === 'finish') { if (room.phase === 'racing') { room.phase = 'finished'; announce(room); } return; }
     if (m.type === 'restart') { room.phase = 'lobby'; room.startedAt = null; for (const p of room.players.values()) { p.ready = false; p.nitro = 100; p.score = 0; p.input = { steer: 0, throttle: 0, brake: false, jump: false, nitro: false }; } announce(room); return; }
@@ -87,7 +99,7 @@ function onMessage(ws, raw) {
       for (const claim of m.cars.slice(0, 8)) {
         const p = room.players.get(claim.id); if (!p) continue;
         const x = Number(claim.x), y = Number(claim.y); if (!Number.isFinite(x) || !Number.isFinite(y) || Math.abs(x) > 3000 || Math.abs(y) > 3000) continue;
-        const pickup = RECHARGE_ZONES.some(([px,py]) => Math.hypot(x-px,y-py) < 48);
+        const pickup = room.rechargeZones.some(([px,py]) => Math.hypot(x-px,y-py) < 48);
         if (pickup && now - (p.lastPickup || 0) > 1500) { p.nitro = Math.min(100, p.nitro + 35); p.lastPickup = now; send(p.ws, 'recharge', { nitro: p.nitro }); }
         p.score = Math.max(0, Math.min(999999, Number(claim.score) || 0));
         cars.push({ id: p.id, x, y, angle: Number(claim.angle) || 0, score: p.score, nitro: p.nitro });

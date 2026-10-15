@@ -1,9 +1,8 @@
 import * as THREE from 'three';
+import { TRACKS, sampleTrack } from '../../shared/tracks.js';
 
 const COLORS = [0x38d9ff, 0xff6c5c, 0xc084fc, 0xffcb45, 0x72e394, 0xff78bd, 0x8ba5ff, 0xff925c];
 const CENTER = 600;
-const TRACK_A = 340;
-const TRACK_B = 210;
 const ROAD_HALF_WIDTH = 58;
 const TRACK_START_T = -Math.PI / 2;
 const CHECKPOINT_PROGRESS = Math.PI;
@@ -13,6 +12,7 @@ const MAX_STEER_ANGLE = 0.46;
 const EFFECTIVE_WHEELBASE = 34;
 const TWO_PI = Math.PI * 2;
 const wrappedAngleDelta = (from, to) => Math.atan2(Math.sin(to - from), Math.cos(to - from));
+let activeTrackId = 'silverstone';
 
 export function viewColumns(count) {
   if (count <= 3) return Math.max(1, count);
@@ -22,10 +22,11 @@ export function viewColumns(count) {
 }
 
 function trackPoint(t) {
-  return { x: TRACK_A * Math.sin(t), z: TRACK_B * Math.sin(2 * t) };
+  return sampleTrack(activeTrackId, t);
 }
 
 function trackHeight(t) {
+  if (activeTrackId !== 'suzuka') return 0;
   const distance = Math.abs(wrappedAngleDelta(0, t));
   if (distance >= BRIDGE_RAMP_SPAN) return 0;
   const ramp = 1 - distance / BRIDGE_RAMP_SPAN;
@@ -34,7 +35,8 @@ function trackHeight(t) {
 
 function trackFrame(t) {
   const point = trackPoint(t);
-  const dx = TRACK_A * Math.cos(t), dz = TRACK_B * 2 * Math.cos(2 * t);
+  const before = trackPoint(t - 0.001), after = trackPoint(t + 0.001);
+  const dx = after.x - before.x, dz = after.z - before.z;
   const length = Math.hypot(dx, dz) || 1;
   const tangent = { x: dx / length, z: dz / length };
   return { point, height: trackHeight(t), tangent, normal: { x: -tangent.z, z: tangent.x } };
@@ -108,7 +110,9 @@ function carMaterial(color, options = {}) {
 }
 
 export class Race3D {
-  constructor(container) {
+  constructor(container, trackId = 'silverstone') {
+    activeTrackId = TRACKS.some(track => track.id === trackId) ? trackId : 'silverstone';
+    this.trackId = activeTrackId;
     this.container = container;
     this.cars = new Map();
     this.pickups = [];
@@ -156,14 +160,14 @@ export class Race3D {
     ground.rotation.x = -Math.PI / 2; ground.position.y = -0.35; this.scene.add(ground);
 
     const asphalt = makeNoiseTexture('#303740', 'rgba(205,218,226,', 1800, 26);
-    this.buildFigureEightTrack(asphalt);
+    this.buildCircuitTrack(asphalt);
     this.addTrackStripe(TRACK_START_T, false);
     this.addTrackStripe(TRACK_START_T + Math.PI, true);
     this.addPickups();
     this.addGrandstands();
   }
 
-  buildFigureEightTrack(asphalt) {
+  buildCircuitTrack(asphalt) {
     const segments = 320;
     const positions = [], uvs = [], normals = [], indices = [];
     const edgePoints = [-1, 1].map(() => []);
@@ -214,19 +218,21 @@ export class Race3D {
     }
     this.scene.add(dashes, ...barrierMeshes.flat());
 
-    // The t=0 branch rises over the t=pi branch. Reinforced cross-beams and
-    // piers sit outside the lower racing line while the road itself forms ramps.
-    const bridgeConcrete = new THREE.MeshStandardMaterial({ color: 0x77848a, roughness: 0.78 });
-    for (const t of [-0.18, 0, 0.18]) {
-      const frame = trackFrame(t);
-      const beam = new THREE.Mesh(new THREE.BoxGeometry(ROAD_HALF_WIDTH * 2 + 8, 1.1, 8), bridgeConcrete);
-      beam.position.set(frame.point.x, Math.max(1, frame.height - 0.6), frame.point.z);
-      beam.rotation.y = Math.atan2(-frame.normal.z, frame.normal.x); this.scene.add(beam);
-      if (Math.abs(t) > 0.01) for (const side of [-1, 1]) {
-        const height = Math.max(2, frame.height - 1.15);
-        const pier = new THREE.Mesh(new THREE.BoxGeometry(7, height, 7), bridgeConcrete);
-        pier.position.set(frame.point.x + frame.normal.x * (ROAD_HALF_WIDTH + 7) * side, height / 2, frame.point.z + frame.normal.z * (ROAD_HALF_WIDTH + 7) * side);
-        this.scene.add(pier);
+    if (TRACKS.find(track => track.id === this.trackId)?.bridge) {
+      // The Suzuka layout crosses over itself; the t=0 branch rises above the
+      // t=pi branch, with approach ramps and supports outside the lower line.
+      const bridgeConcrete = new THREE.MeshStandardMaterial({ color: 0x77848a, roughness: 0.78 });
+      for (const t of [-0.18, 0, 0.18]) {
+        const frame = trackFrame(t);
+        const beam = new THREE.Mesh(new THREE.BoxGeometry(ROAD_HALF_WIDTH * 2 + 8, 1.1, 8), bridgeConcrete);
+        beam.position.set(frame.point.x, Math.max(1, frame.height - 0.6), frame.point.z);
+        beam.rotation.y = Math.atan2(-frame.normal.z, frame.normal.x); this.scene.add(beam);
+        if (Math.abs(t) > 0.01) for (const side of [-1, 1]) {
+          const height = Math.max(2, frame.height - 1.15);
+          const pier = new THREE.Mesh(new THREE.BoxGeometry(7, height, 7), bridgeConcrete);
+          pier.position.set(frame.point.x + frame.normal.x * (ROAD_HALF_WIDTH + 7) * side, height / 2, frame.point.z + frame.normal.z * (ROAD_HALF_WIDTH + 7) * side);
+          this.scene.add(pier);
+        }
       }
     }
   }
