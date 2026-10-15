@@ -8,28 +8,29 @@ const WS = import.meta.env.VITE_WS_URL || (location.protocol === 'https:' ? `wss
 const PLAYER_COLORS = [0x38d9ff,0xff6c5c,0xc084fc,0xffcb45,0x72e394,0xff78bd,0x8ba5ff,0xff925c];
 
 function EmptyGridCar() {
-  return <svg className="empty-car-art" viewBox="0 0 280 156" aria-hidden="true">
+  return <svg className="empty-car-art empty-car-side" viewBox="0 0 280 156" aria-hidden="true">
     <defs>
-      <linearGradient id="car-trim" x1="0" y1="0" x2="1" y2="1"><stop stopColor="#a3ffe0"/><stop offset=".52" stopColor="#46e2d1"/><stop offset="1" stopColor="#38bde8"/></linearGradient>
-      <linearGradient id="car-glass" x1=".15" y1="0" x2=".9" y2="1"><stop stopColor="#173441"/><stop offset="1" stopColor="#091721"/></linearGradient>
-      <filter id="car-neon" x="-35%" y="-45%" width="170%" height="190%"><feGaussianBlur stdDeviation="3.5" result="blur"/><feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
+      <linearGradient id="side-car-trim" x1="0" y1="0" x2="1" y2="1"><stop stopColor="#a3ffe0"/><stop offset=".55" stopColor="#46e2d1"/><stop offset="1" stopColor="#38bde8"/></linearGradient>
+      <linearGradient id="side-car-glass" x1="0" y1="0" x2="1" y2="1"><stop stopColor="#275866"/><stop offset="1" stopColor="#0b1b26"/></linearGradient>
+      <filter id="side-car-neon" x="-20%" y="-35%" width="140%" height="170%"><feGaussianBlur stdDeviation="2.6" result="blur"/><feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
     </defs>
-    <ellipse cx="140" cy="132" rx="83" ry="8" fill="#42e5cf" opacity=".13"/>
-    <g className="car-speed-lines" fill="none" stroke="url(#car-trim)" strokeLinecap="round" opacity=".55">
-      <path d="M40 87H78M30 98H66M42 109H73M240 87h-38m48 11h-38m29 11h-32" strokeWidth="2"/>
-      <path d="M58 77h24m140 0h-24" strokeWidth="1.5" opacity=".65"/>
+    <ellipse cx="143" cy="132" rx="105" ry="7" fill="#42e5cf" opacity=".12"/>
+    <g className="car-speed-lines" fill="none" stroke="url(#side-car-trim)" strokeLinecap="round" opacity=".55" strokeWidth="1.7">
+      <path d="M16 77h27M9 86h30M17 96h26M264 77h-22m29 9h-25m18 10h-25"/>
     </g>
-    <g filter="url(#car-neon)" stroke="url(#car-trim)" strokeLinejoin="round" strokeLinecap="round">
-      <path d="M70 111 75 91Q77 83 86 78L101 69 111 48Q114 42 122 41H158Q166 42 169 48L179 69 194 78Q203 83 205 91L210 111 198 121H82Z" fill="#0d1b25" strokeWidth="2.3"/>
-      <path d="m101 68 10-19q2-4 8-4h42q6 0 8 4l10 19-16 4h-46Z" fill="url(#car-glass)" strokeWidth="1.8"/>
-      <path d="m140 46 .5 25" fill="none" strokeWidth="1.3" opacity=".65"/>
-      <path d="m89 81 18-6h66l18 6-13 8h-76Z" fill="#10232d" strokeWidth="1.5"/>
-      <path d="m80 94 16-5 13 3-3 8-25 2Zm120 0-16-5-13 3 3 8 25 2Z" fill="#baffdf" strokeWidth="1.6"/>
-      <path d="M76 106q22-5 64-5t64 5l-7 12H83Z" fill="#10212b" strokeWidth="1.8"/>
-      <path d="M108 113h64m-54 5h44" fill="none" strokeWidth="1.4" opacity=".8"/>
-      <path d="m73 92-8 4m142-4 8 4" fill="none" strokeWidth="2.2"/>
+    <g filter="url(#side-car-neon)" stroke="url(#side-car-trim)" strokeWidth="1.8" strokeLinejoin="round" strokeLinecap="round">
+      <path d="m18 96 2-11 28-2 18-8 37-2 20-8 15-2 18 5 22 12 34 2 17 7 34 4 5 8-26 2-17-5h-25l-16 9-49 4-47-5-28 1-13 3-29-2-1-7Z" fill="#0d1b25"/>
+      <path d="m105 74 12-7 8-13q3-5 10-5h18q8 0 12 6l8 15-16 5-37-1Z" fill="url(#side-car-glass)"/>
+      <path d="m123 55-2-13 5-8 28 1 7 7-4 13m-36-12 35 1m-13 1v12" fill="none"/>
+      <path d="m211 78 8-16 5-16 3 1 1 19 8 11m-12-27 22 1v27m-24-1 27 1 1 4-27-1" fill="#10212b"/>
+      <path d="m20 83-7 1-2 14 36 1 1-7-17-2-1-6m225-9 18 1 4 4-2 3-17-2" fill="#10212b"/>
+      <circle cx="75" cy="101" r="24" fill="#09131c" strokeWidth="2.2"/><circle cx="75" cy="101" r="17" fill="#101e28" strokeWidth="1.2"/><circle cx="75" cy="101" r="10" fill="none" strokeWidth="1.1"/><circle cx="75" cy="101" r="3.5" fill="#6cebd7" strokeWidth="1"/>
+      <path d="m75 91 2 7m7-3-6 4m6 7-7-2m-5 7 1-7m-8-2 7-2m-1-8 3 7" fill="none" strokeWidth="1"/>
+      <circle cx="218" cy="101" r="24" fill="#09131c" strokeWidth="2.2"/><circle cx="218" cy="101" r="17" fill="#101e28" strokeWidth="1.2"/><circle cx="218" cy="101" r="10" fill="none" strokeWidth="1.1"/><circle cx="218" cy="101" r="3.5" fill="#6cebd7" strokeWidth="1"/>
+      <path d="m218 91 2 7m7-3-6 4m6 7-7-2m-5 7 1-7m-8-2 7-2m-1-8 3 7" fill="none" strokeWidth="1"/>
+      <path d="m128 67 10-7h14l13 8m-28-8 3-6h12l4 6m-29 22 21 1 15-3m-64-3-11 8 21 2m94-8 15 6 18 1m-121 10 26 3h42l23-4m-32-34h8m-6 4h5" fill="none" strokeWidth="1.2"/>
+      <path d="m18 96 25 1m-11-7 19 1m194 5 18 1m-27-8 26 2" fill="none" strokeWidth="1.4"/>
     </g>
-    <path d="M118 54h44" stroke="#a5f9e0" strokeWidth="1" opacity=".55"/>
   </svg>;
 }
 
