@@ -67,8 +67,8 @@ function FooterCarGlyphs() {
 }
 
 function TrackWatermark() {
-  const track = 'M 55 250 C 55 78 278 60 390 250 C 502 440 725 422 725 250 C 725 78 502 60 390 250 C 278 440 55 422 55 250';
-  return <svg className="track-watermark" viewBox="0 0 780 500" aria-hidden="true">
+  const track = 'M 28 438 C 20 422 45 248 57 88 C 63 18 80 12 112 52 C 156 105 179 117 211 130 C 238 142 238 157 232 180 C 224 209 253 226 284 246 C 312 264 324 279 296 282 C 243 288 174 274 117 279 C 101 280 105 267 123 250 C 143 231 169 235 205 243 C 267 257 346 262 397 257 C 428 254 435 230 421 201 C 407 172 382 164 350 151 C 318 139 311 113 325 84 C 344 43 360 25 379 43 C 403 67 428 111 455 153 C 489 206 526 271 570 342 C 599 389 626 419 584 431 C 547 442 464 438 390 436 C 303 434 226 429 146 437 C 96 442 55 447 28 438 Z';
+  return <svg className="track-watermark" viewBox="0 0 640 480" aria-hidden="true" preserveAspectRatio="xMidYMid meet">
     <path className="track-watermark-edge" d={track}/>
     <path className="track-watermark-center" d={track}/>
   </svg>;
