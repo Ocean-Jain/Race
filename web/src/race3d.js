@@ -26,8 +26,9 @@ function trackPoint(t) {
 }
 
 function trackHeight(t) {
-  if (activeTrackId !== 'suzuka') return 0;
-  const distance = Math.abs(wrappedAngleDelta(0, t));
+  const track = TRACKS.find(item => item.id === activeTrackId);
+  if (!track?.bridge) return 0;
+  const distance = Math.abs(wrappedAngleDelta(track.bridgeAt ?? 0, t));
   if (distance >= BRIDGE_RAMP_SPAN) return 0;
   const ramp = 1 - distance / BRIDGE_RAMP_SPAN;
   return BRIDGE_HEIGHT * ramp * ramp * (3 - 2 * ramp);
@@ -219,10 +220,11 @@ export class Race3D {
     this.scene.add(dashes, ...barrierMeshes.flat());
 
     if (TRACKS.find(track => track.id === this.trackId)?.bridge) {
-      // The Suzuka layout crosses over itself; the t=0 branch rises above the
-      // t=pi branch, with approach ramps and supports outside the lower line.
+      // The Suzuka crossing rises above its return line, with approach ramps
+      // and supports outside the lower branch.
+      const bridgeAt = TRACKS.find(track => track.id === this.trackId)?.bridgeAt ?? 0;
       const bridgeConcrete = new THREE.MeshStandardMaterial({ color: 0x77848a, roughness: 0.78 });
-      for (const t of [-0.18, 0, 0.18]) {
+      for (const t of [bridgeAt - 0.18, bridgeAt, bridgeAt + 0.18]) {
         const frame = trackFrame(t);
         const beam = new THREE.Mesh(new THREE.BoxGeometry(ROAD_HALF_WIDTH * 2 + 8, 1.1, 8), bridgeConcrete);
         beam.position.set(frame.point.x, Math.max(1, frame.height - 0.6), frame.point.z);
