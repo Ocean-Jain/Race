@@ -1,7 +1,6 @@
-// Circuit geometry is traced from the official Formula 1 circuit maps linked
-// below. The normalized centerline is the single source for lobby previews,
-// the live minimap, and the 3D road. Coordinates are intentionally kept in
-// local map space so the game can scale every circuit consistently.
+// Preview SVGs are authored as fixed path strings, independently of the
+// gameplay centerlines. This prevents preview rendering from depending on
+// runtime path generation or route sampling.
 const MAP_WIDTH = 220;
 const MAP_HEIGHT = 100;
 const WORLD_X = 4;
@@ -28,6 +27,7 @@ export const TRACKS = [
   circuit({
     id: 'silverstone', name: 'Silverstone', fullName: 'Silverstone Circuit', country: 'United Kingdom', flag: '🇬🇧',
     length: '5.891 km', corners: '18 corners', source: 'https://www.formula1.com/en/latest/article/circuit-guide-everything-you-need-to-know-about-silverstone-2026.5Sl0O8g393enBWVIkjRzOr.5Sl0O8g393enBWVIkjRzOr',
+    mapPath: 'M 24 68 L 42 68 Q 50 68 55 64 L 66 55 Q 71 51 77 54 L 88 60 Q 94 63 101 59 L 112 51 Q 118 47 124 53 L 133 61 Q 139 66 146 60 L 153 53 Q 159 47 166 52 L 176 59 Q 182 63 187 58 L 196 48 Q 201 42 195 36 L 186 27 Q 181 22 175 27 L 166 35 Q 160 40 154 35 L 143 25 Q 137 19 130 25 L 121 34 Q 115 40 108 35 L 97 27 Q 90 22 84 29 L 76 38 Q 70 45 63 40 L 55 34 Q 50 30 46 36 L 39 47 Q 34 54 28 52 Z',
   }, [
     [25,69],[43,69],[62,69],[78,69],[87,67], // Hamilton Straight, Abbey
     [91,63],[88,59],[82,56],[78,52],[79,48],[84,45],[92,44],[101,47], // Farm/Village/Loop
@@ -41,6 +41,7 @@ export const TRACKS = [
   circuit({
     id: 'monza', name: 'Monza', fullName: 'Autodromo Nazionale Monza', country: 'Italy', flag: '🇮🇹',
     length: '5.793 km', corners: '11 corners', source: 'https://www.formula1.com/en/information/italy-autodromo-nazionalemonza.FiJN1jnQlRLeHqOxIt13m',
+    mapPath: 'M 28 68 L 48 68 L 68 68 L 89 68 L 111 68 L 133 68 L 155 68 L 176 68 L 190 68 L 197 64 L 194 59 L 185 58 L 181 62 L 188 65 L 182 67 Q 178 66 177 61 Q 176 56 181 52 Q 187 47 190 41 Q 193 35 188 30 Q 182 25 174 28 Q 167 31 163 36 L 169 39 L 178 34 L 183 39 Q 184 45 178 50 Q 172 55 164 55 L 146 54 L 135 52 Q 129 50 126 45 L 119 39 L 111 39 L 103 42 L 98 47 L 103 51 L 113 48 L 119 52 L 115 57 Q 108 61 100 61 L 84 59 L 75 55 L 70 49 L 66 43 L 60 42 L 55 47 L 60 52 L 68 54 L 64 60 L 57 66 L 45 67 L 33 65 Z',
   }, [
     [42,72],[63,72],[85,72],[108,72],[132,72],[155,72],[176,72],[187,70], // pit straight
     [194,67],[196,63],[193,60],[188,61],[187,65],[190,68],[184,69], // Rettifilo chicanes
@@ -54,6 +55,7 @@ export const TRACKS = [
   circuit({
     id: 'spa', name: 'Spa-Francorchamps', fullName: 'Circuit de Spa-Francorchamps', country: 'Belgium', flag: '🇧🇪',
     length: '7.004 km', corners: '19 corners', source: 'https://www.formula1.com/en/racing/2026/belgium',
+    mapPath: 'M 27 70 L 39 70 Q 47 70 51 64 L 57 57 Q 61 52 57 47 L 51 40 Q 48 35 54 31 Q 61 27 69 31 L 79 38 Q 84 42 88 35 L 96 21 Q 100 13 108 17 L 119 24 L 139 29 L 159 33 L 178 37 Q 187 39 190 45 L 184 51 L 176 50 L 169 45 L 163 48 L 159 56 L 151 62 L 141 59 L 137 53 L 130 49 L 123 52 L 120 60 L 125 66 L 135 69 L 132 76 L 119 80 L 102 78 L 88 73 L 74 71 L 61 75 L 48 77 L 36 75 Z',
   }, [
     [37,73],[51,73],[64,73],[72,71],[77,67],[77,62],[73,58], // start, La Source
     [69,54],[68,50],[71,46],[75,42],[79,38],[82,33],[86,28], // Eau Rouge / Raidillon
@@ -68,6 +70,7 @@ export const TRACKS = [
   circuit({
     id: 'suzuka', name: 'Suzuka', fullName: 'Suzuka International Racing Course', country: 'Japan', flag: '🇯🇵',
     length: '5.807 km', corners: '18 corners', source: 'https://www.formula1.com/en/information/japan-suzuka-international-racing-course.2XjOiKgIHRRBVVpp5N3S5t',
+    mapPath: 'M 174 72 L 159 70 L 143 66 L 128 61 L 116 55 L 107 49 L 101 43 L 103 38 L 111 36 L 119 39 L 122 44 L 118 48 L 111 50 L 105 54 L 107 60 L 114 64 L 121 61 L 127 53 L 131 43 L 136 33 L 145 25 L 157 21 L 169 24 L 177 31 L 181 40 L 179 49 L 173 55 L 164 57 L 155 53 L 151 47 L 154 42 L 160 41 L 165 45 L 165 50 L 160 54 L 153 57 L 146 61 L 142 67 L 148 72 L 160 75 L 173 76 L 181 73 Z',
   }, [
     // The S-curves and Degners feed the raised crossover at point 12; the
     // upper hairpin/130R loop returns underneath at point 36.
@@ -83,6 +86,7 @@ export const TRACKS = [
   circuit({
     id: 'monaco', name: 'Monaco', fullName: 'Circuit de Monaco', country: 'Monaco', flag: '🇲🇨',
     length: '3.337 km', corners: '19 corners', source: 'https://www.formula1.com/en/information/monaco-circuit-de-monaco-monte-carlo.2ZWRtIcSI6ZzVGX1uGRpkJ',
+    mapPath: 'M 35 70 L 51 70 L 68 69 L 82 66 L 91 61 L 94 55 L 89 50 L 84 45 L 86 39 L 94 35 L 106 34 L 118 37 L 123 42 L 119 46 L 110 47 L 106 51 L 111 55 L 120 54 L 128 49 L 135 42 L 143 38 L 150 40 L 154 46 L 151 51 L 145 53 L 141 57 L 146 62 L 155 65 L 164 68 L 169 72 L 166 77 L 157 79 L 147 78 L 140 74 L 134 71 L 128 73 L 122 78 L 112 81 L 99 80 L 87 77 L 74 76 L 62 78 L 50 77 L 41 74 Z',
   }, [
     [46,72],[58,72],[72,72],[86,71],[98,69],[105,66],[107,62], // Start / Sainte Devote
     [103,58],[99,54],[97,50],[98,46],[103,42],[111,39],[121,37], // Beau Rivage
@@ -101,14 +105,6 @@ function curvePoint(points, index, u) {
   const end = points[(index + 1) % points.length];
   return start.map((value, axis) => value + (end[axis] - value) * u);
 }
-
-function smoothPath(points) {
-  const subdivisions = 8;
-  const samples = points.flatMap((_, index) => Array.from({ length: subdivisions }, (__, step) => curvePoint(points, index, step / subdivisions)));
-  return samples.map(([x, y], index) => `${index ? 'L' : 'M'}${x.toFixed(2)} ${y.toFixed(2)}`).join(' ') + ' Z';
-}
-
-for (const track of TRACKS) track.mapPath = smoothPath(track.centerline);
 
 // The lobby SVG and race engine share this traced centerline. Linear sampling
 // keeps tight chicanes stable and prevents spline overshoot from inventing
