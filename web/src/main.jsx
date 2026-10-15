@@ -10,7 +10,12 @@ const PLAYER_COLORS = [0x38d9ff,0xff6c5c,0xc084fc,0xffcb45,0x72e394,0xff78bd,0x8
 const CIRCUITS = TRACKS;
 
 function CircuitGlyph({ circuit }) {
-  return <svg viewBox="0 0 220 100" aria-hidden="true"><path d={circuit.mapPath} transform={circuit.id === 'suzuka' ? 'translate(0 10) scale(1 .67)' : undefined}/></svg>;
+  return <svg viewBox="0 0 220 72" aria-hidden="true">
+    <g transform="scale(1 .72)">
+      <path d={circuit.mapPath}/>
+      {circuit.bridge && <g className="track-bridge-mark"><path d="M100 51h20" className="track-bridge-shadow"/><path d="M100 51h20" className="track-bridge-deck"/></g>}
+    </g>
+  </svg>;
 }
 
 function EmptyGridCar() {
@@ -201,7 +206,7 @@ function App() {
       <div className="lobby-title"><div><div className="eyebrow">ROOM READY</div><h1>Get your crew<br/><em>on the grid.</em></h1></div><div className="room-pill"><small>ROOM CODE</small><strong>{room}</strong></div></div>
       <section className="track-picker" aria-label="Select race circuit">
         <div className="track-picker-head"><div><div className="eyebrow">SELECT CIRCUIT</div><p>Choose the course for this room.</p></div><div className="active-circuit"><small>RACE CIRCUIT</small><strong><span>{activeCircuit.flag}</span>{activeCircuit.name}</strong></div></div>
-        <div className="track-grid">{CIRCUITS.map(circuit => <button type="button" className={`track-card ${trackId === circuit.id ? 'selected' : ''}`} key={circuit.id} onClick={() => selectCircuit(circuit.id)} aria-pressed={trackId === circuit.id}>
+        <div className="track-grid">{CIRCUITS.map(circuit => <button type="button" className={`track-card ${trackId === circuit.id ? 'selected' : ''}`} key={circuit.id} onClick={() => selectCircuit(circuit.id)} aria-pressed={trackId === circuit.id} aria-label={`${circuit.fullName}, ${circuit.length}, ${circuit.corners}`} title={circuit.fullName}>
           <div className="track-card-map"><CircuitGlyph circuit={circuit}/><span className="track-card-flag" aria-label={circuit.country}>{circuit.flag}</span></div>
           <span className="track-card-country">{circuit.country}</span><strong>{circuit.name}</strong><span className="track-card-meta">{circuit.length}<i/> {circuit.corners}</span>
         </button>)}</div>
