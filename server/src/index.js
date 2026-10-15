@@ -11,6 +11,7 @@ const HOST = process.env.HOST || '0.0.0.0';
 const TICK_MS = 50;
 const SESSION_TTL = 60_000;
 const TRACK_START_T = -Math.PI / 2;
+const TRACK_ID = TRACKS[0].id;
 const RECHARGE_PROGRESS = [0.48, 1.32, 2.18, 3.05, 3.95, 4.88, 5.68];
 const RECHARGE_OFFSETS = [-21, 18, -16, 22, -20, 17, -14];
 function rechargeZones(trackId) {
@@ -58,7 +59,7 @@ function onMessage(ws, raw) {
   if (m.type === 'create') {
     if (context) return send(ws, 'error', { message: 'This connection already joined a room.' });
     let id; do { id = code(); } while (rooms.has(id));
-    const room = { code: id, browsers: new Set([ws]), players: new Map(), phase: 'lobby', startedAt: null, trackId: 'silverstone', rechargeZones: rechargeZones('silverstone'), stateAt: 0, lastState: [] };
+    const room = { code: id, browsers: new Set([ws]), players: new Map(), phase: 'lobby', startedAt: null, trackId: TRACK_ID, rechargeZones: rechargeZones(TRACK_ID), stateAt: 0, lastState: [] };
     rooms.set(id, room); clients.set(ws, { role: 'browser', room });
     return send(ws, 'created', { room: id, state: roomSnapshot(room) });
   }
@@ -81,14 +82,6 @@ function onMessage(ws, raw) {
   if (m.type === 'ping') return send(ws, 'pong', { id: m.id, sentAt: m.sentAt, serverAt: Date.now() });
   if (m.type === 'pong' && context.role === 'player') { const p = room.players.get(context.playerId); if (p && Number.isFinite(Number(m.sentAt))) { p.latency = Math.max(0, Math.min(9999, Date.now() - Number(m.sentAt))); announce(room); } return; }
   if (context.role === 'browser') {
-    if (m.type === 'trackSelect') {
-      if (room.phase !== 'lobby') return send(ws, 'error', { message: 'The circuit can only be changed in the lobby.' });
-      if (!TRACKS.some(track => track.id === m.trackId)) return send(ws, 'error', { message: 'Unknown circuit selection.' });
-      room.trackId = m.trackId;
-      room.rechargeZones = rechargeZones(m.trackId);
-      announce(room);
-      return;
-    }
     if (m.type === 'start') { if (room.players.size < 1 && !m.keyboard) return send(ws, 'error', { message: 'At least one phone or keyboard racer is required.' }); room.phase = 'racing'; room.startedAt = Date.now(); announce(room); return; }
     if (m.type === 'finish') { if (room.phase === 'racing') { room.phase = 'finished'; announce(room); } return; }
     if (m.type === 'restart') { room.phase = 'lobby'; room.startedAt = null; for (const p of room.players.values()) { p.ready = false; p.nitro = 100; p.score = 0; p.input = { steer: 0, throttle: 0, brake: false, jump: false, nitro: false }; } announce(room); return; }

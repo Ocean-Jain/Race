@@ -53,7 +53,7 @@ function FooterCarGlyphs() {
 }
 
 function TrackWatermark() {
-  const track = 'M 28 438 C 20 422 45 248 57 88 C 63 18 80 12 112 52 C 156 105 179 117 211 130 C 238 142 238 157 232 180 C 224 209 253 226 284 246 C 312 264 324 279 296 282 C 243 288 174 274 117 279 C 101 280 105 267 123 250 C 143 231 169 235 205 243 C 267 257 346 262 397 257 C 428 254 435 230 421 201 C 407 172 382 164 350 151 C 318 139 311 113 325 84 C 344 43 360 25 379 43 C 403 67 428 111 455 153 C 489 206 526 271 570 342 C 599 389 626 419 584 431 C 547 442 464 438 390 436 C 303 434 226 429 146 437 C 96 442 55 447 28 438 Z';
+  const track = 'M 320 240 C 260 100 90 100 60 220 C 30 340 200 380 320 240 C 440 100 610 100 580 220 C 550 340 380 380 320 240';
   return <svg className="track-watermark" viewBox="0 0 640 480" aria-hidden="true" preserveAspectRatio="xMidYMid meet">
     <path className="track-watermark-edge" d={track}/>
     <path className="track-watermark-center" d={track}/>
@@ -109,7 +109,7 @@ function App() {
   const stageRef = useRef(null), gameRef = useRef(null), wsRef = useRef(null);
   const finishedRef = useRef(false);
   const [room,setRoom] = useState(''), [players,setPlayers] = useState([]), [phase,setPhase] = useState('welcome');
-  const [trackId,setTrackId] = useState('silverstone');
+  const trackId = 'infinity';
   const [qr,setQr] = useState(''), [hud,setHud] = useState([]), [error,setError] = useState('');
   const [connected,setConnected] = useState(false), [timer,setTimer] = useState(0), [keyboardOn,setKeyboardOn] = useState(false);
 
@@ -151,13 +151,12 @@ function App() {
     ws.onmessage = event => {
       let message; try { message = JSON.parse(event.data); } catch { return; }
       if (message.type === 'created') {
-        setRoom(message.room); setTrackId(message.state?.trackId || 'silverstone'); setPhase('lobby');
+        setRoom(message.room); setPhase('lobby');
         const join = `tiltrace://join?server=${encodeURIComponent(WS)}&room=${message.room}`;
         QRCode.toDataURL(join, { width:210, margin:1, color:{ dark:'#08121c', light:'#ffffff' } }).then(setQr);
       }
       if (message.type === 'room') {
         setPlayers(message.state.players);
-        if (CIRCUITS.some(circuit => circuit.id === message.state.trackId)) setTrackId(message.state.trackId);
         if (message.state.phase === 'racing' && !finishedRef.current) setPhase('racing');
         if (message.state.phase === 'finished') { finishedRef.current = true; setPhase('finished'); }
         if (message.state.phase === 'lobby') { finishedRef.current = false; setPhase('lobby'); }
@@ -174,11 +173,6 @@ function App() {
     window.sendRoom?.({ type:'start', keyboard:keyboardOn });
     setTimer(0); setPhase('racing');
   }
-  function selectCircuit(id) {
-    if (phase !== 'lobby' || !CIRCUITS.some(circuit => circuit.id === id)) return;
-    setTrackId(id);
-    window.sendRoom?.({ type:'trackSelect', trackId:id });
-  }
   function restart() { finishedRef.current = false; window.sendRoom?.({ type:'restart' }); setTimer(0); setPhase('lobby'); }
   function addKeyboard() { setKeyboardOn(true); setError('Keyboard racer added: WASD or arrows to drive, Space for nitro, Shift to jump.'); }
 
@@ -186,7 +180,7 @@ function App() {
   const columns = viewColumns(Math.max(1, racers.length));
   const clock = phase === 'finished' ? 0 : 120 - timer;
   const finalResults = [...hud].sort((a, b) => b.score - a.score || (b.laps || 0) - (a.laps || 0) || a.name.localeCompare(b.name));
-  const activeCircuit = CIRCUITS.find(circuit => circuit.id === trackId) || CIRCUITS[0];
+  const activeCircuit = CIRCUITS[0];
 
   return <main className="shell">
     <TrackWatermark/>
@@ -204,13 +198,11 @@ function App() {
     </section>}
     {phase === 'lobby' && <section className="lobby">
       <div className="lobby-title"><div><div className="eyebrow">ROOM READY</div><h1>Get your crew<br/><em>on the grid.</em></h1></div><div className="room-pill"><small>ROOM CODE</small><strong>{room}</strong></div></div>
-      <section className="track-picker" aria-label="Select race circuit">
-        <div className="track-picker-head"><div><div className="eyebrow">SELECT CIRCUIT</div><p>Choose the course for this room.</p></div><div className="active-circuit"><small>RACE CIRCUIT</small><strong><span>{activeCircuit.flag}</span>{activeCircuit.name}</strong></div></div>
-        <div className="track-grid">{CIRCUITS.map(circuit => <button type="button" className={`track-card ${trackId === circuit.id ? 'selected' : ''}`} key={circuit.id} onClick={() => selectCircuit(circuit.id)} aria-pressed={trackId === circuit.id} aria-label={`${circuit.fullName}, ${circuit.length}, ${circuit.corners}`} title={circuit.fullName}>
-          <div className="track-card-map"><CircuitGlyph circuit={circuit}/><span className="track-card-flag" aria-label={circuit.country}>{circuit.flag}</span></div>
-          <span className="track-card-country">{circuit.country}</span><strong>{circuit.name}</strong><span className="track-card-meta">{circuit.length}<i/> {circuit.corners}</span>
-        </button>)}</div>
-      </section>
+      <div className="track-banner" aria-label="Race track: Infinity Circuit">
+        <span className="track-banner-label">RACE TRACK</span>
+        <CircuitGlyph circuit={activeCircuit}/>
+        <div><strong>{activeCircuit.name}</strong><small>ONE LOOP · BRIDGE CROSSING</small></div>
+      </div>
       <div className="pair-grid">
         <div className="qr-panel"><div className="qrwrap">{qr && <img src={qr} alt={`QR code to join room ${room}`}/>}</div><h2>Scan to join</h2><p>Open your phone camera and point it at the code.</p><button className="copy" onClick={() => navigator.clipboard?.writeText(room)}>Copy room code</button></div>
         <div className={`players-panel ${players.length === 0 ? 'waiting-panel' : ''}`}><div className="panel-heading">PLAYERS <span>{players.length} / 8</span></div>

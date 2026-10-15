@@ -9,7 +9,7 @@ import { CameraView, useCameraPermissions } from 'expo-camera';
 const COLOR = '#4be0c4';
 const INPUT_RATE_MS = 33; // 30 Hz stays below the relay's 50 Hz input limit.
 const PING_RATE_MS = 2000;
-const TRACK_NAMES = { silverstone: 'Silverstone', monza: 'Monza', spa: 'Spa-Francorchamps', suzuka: 'Suzuka', monaco: 'Monaco' };
+const TRACK_NAME = 'Infinity Circuit';
 
 function parseLink(value) {
   try {
@@ -26,7 +26,6 @@ export default function App() {
   // install cannot silently try to connect to a made-up example address.
   const [server, setServer] = useState('');
   const [room, setRoom] = useState(''), [name, setName] = useState('Racer'), [status, setStatus] = useState('disconnected');
-  const [trackId, setTrackId] = useState('silverstone');
   const [latency, setLatency] = useState(null), [joined, setJoined] = useState(false), [playerName, setPlayerName] = useState('Racer');
   const [ready, setReady] = useState(false), [nitro, setNitro] = useState(100), [sensitivity, setSensitivity] = useState(3.0);
   const [readyPending, setReadyPending] = useState(false), [steerTrackWidth, setSteerTrackWidth] = useState(0);
@@ -130,7 +129,6 @@ export default function App() {
             closedByUser.current = true; clearNetworkTimers(); socket.close(); return;
           }
           setJoined(true); playerId.current = message.playerId; setPlayerName(message.name);
-          setTrackId(message.state?.trackId || 'silverstone');
           setReadyPending(false);
           setReady(message.state?.players?.find(p => p.id === message.playerId)?.ready || false);
           AsyncStorage.multiSet([['room', room.toUpperCase()], ['playerId', message.playerId], ['server', address], ['name', name]]);
@@ -149,7 +147,6 @@ export default function App() {
           if (message.type === 'recharge' && vibrate) Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
         }
         if (message.type === 'room') {
-          setTrackId(message.state?.trackId || 'silverstone');
           const player = message.state.players.find(item => item.id === playerId.current);
           if (player) { setReady(player.ready); setNitro(player.nitro); if (player.latency !== null) setLatency(player.latency); }
         }
@@ -253,7 +250,7 @@ export default function App() {
         <Text style={[s.label,{ marginTop: 19 }]}>RACER NAME</Text><TextInput style={s.input} value={name} onChangeText={setName} maxLength={18} placeholder="Racer" placeholderTextColor="#647584"/><Pressable style={[s.mainBtn,(!room || !server) && { opacity: 0.45 }]} onPress={join} disabled={!room || !server}><Text style={s.mainText}>JOIN ROOM　→</Text></Pressable>
       </View><View style={s.help}><Text style={s.helpTitle}>PORTRAIT JOIN · LANDSCAPE RACE</Text><Text style={s.helpText}>Scan and connect in portrait. The controller rotates to landscape after joining; calibrate, then rotate the phone like a steering wheel.</Text></View>{notice}
     </ScrollView> : landscape ? <View style={s.landscape}>
-      <View style={s.landTop}>{brand}<View style={s.landRoom}><Text style={s.kicker}>ROOM {room}</Text><Text style={s.landTrack}>TRACK · {TRACK_NAMES[trackId] || TRACK_NAMES.silverstone}</Text><Text style={s.landPlayer}>{playerName}</Text></View><View style={s.landLatency}><Text style={s.latencyN}>{latency === null ? '—' : latency}</Text><Text style={s.latencyL}>MS PING</Text></View><Pressable onPress={disconnect} style={s.leave}><Text style={s.disconnectText}>LEAVE</Text></Pressable></View>
+      <View style={s.landTop}>{brand}<View style={s.landRoom}><Text style={s.kicker}>ROOM {room}</Text><Text style={s.landTrack}>TRACK · {TRACK_NAME}</Text><Text style={s.landPlayer}>{playerName}</Text></View><View style={s.landLatency}><Text style={s.latencyN}>{latency === null ? '—' : latency}</Text><Text style={s.latencyL}>MS PING</Text></View><Pressable onPress={disconnect} style={s.leave}><Text style={s.disconnectText}>LEAVE</Text></Pressable></View>
       <View style={s.controller}>
         <View style={s.leftGrip}><Text style={s.padLabel}>TILT TO STEER</Text>{tiltWheel}<Pressable style={s.calib} onPress={calibrate}><Text style={s.calibText}>⊙　CALIBRATE</Text></Pressable></View>
         <View style={s.centerGrip}><View style={s.statusbar}><Text style={s.statusbarText}>● {status === 'connected' ? 'CONNECTED' : 'RECONNECTING'}</Text><Text style={s.statusbarText}>NITRO {Math.round(nitro)}%</Text></View>
@@ -263,7 +260,7 @@ export default function App() {
         <View style={s.rightGrip}><Text style={s.padLabel}>BOOST</Text><Pressable onPressIn={startNitro} onPressOut={stopNitro} style={[s.nitroTrigger,nitro <= 0 && { opacity: 0.45 }]}><Text style={s.nitroIcon}>ϟ</Text><Text style={s.nitroText}>NITRO</Text><Text style={s.padSmall}>HOLD TO BOOST</Text></Pressable><View style={s.shakeBadge}><Text style={s.shakeIcon}>↯</Text><Text style={s.settingSub}>SHAKE TO JUMP</Text></View></View>
       </View>{notice}
     </View> : <ScrollView contentContainerStyle={s.wrap}>
-      {brand}<View style={s.racebar}><View><Text style={s.kicker}>ROOM {room} · TRACK · {TRACK_NAMES[trackId] || TRACK_NAMES.silverstone}</Text><Text style={s.raceName}>{playerName}</Text></View><View style={s.latency}><Text style={s.latencyN}>{latency === null ? '—' : latency}</Text><Text style={s.latencyL}>MS PING</Text></View></View>
+      {brand}<View style={s.racebar}><View><Text style={s.kicker}>ROOM {room} · TRACK · {TRACK_NAME}</Text><Text style={s.raceName}>{playerName}</Text></View><View style={s.latency}><Text style={s.latencyN}>{latency === null ? '—' : latency}</Text><Text style={s.latencyL}>MS PING</Text></View></View>
       <View style={s.statusbar}><Text style={s.statusbarText}>● {status === 'connected' ? 'CONNECTED' : 'RECONNECTING'}　·　{ready ? 'READY' : 'NOT READY'}</Text><Text style={s.statusbarText}>NITRO {Math.round(nitro)}%</Text></View>
       <View style={s.controls}><Text style={s.controlHint}>TILT TO STEER</Text>{tiltWheel}<Pressable style={s.calib} onPress={calibrate}><Text style={s.calibText}>⊙　CALIBRATE NEUTRAL</Text></Pressable><View style={s.pads}><Pressable style={[s.pad,s.boostPad,nitro <= 0 && { opacity: .4 }]} onPressIn={startNitro} onPressOut={stopNitro}><Text style={s.padIcon}>ϟ</Text><Text style={s.padTitle}>NITRO</Text><Text style={s.padSmall}>HOLD TO BOOST</Text></Pressable><View style={s.rightPads}><Pressable onPressIn={() => setThrottle(1)} onPressOut={() => setThrottle(0)} style={[s.pad,s.gasPad]}><Text style={s.padIcon}>↑</Text><Text style={s.padTitle}>ACCELERATE</Text></Pressable><Pressable onPressIn={() => setBrake(true)} onPressOut={() => setBrake(false)} style={[s.pad,s.brakePad]}><Text style={s.padTitle}>BRAKE</Text></Pressable></View></View></View>
       <View style={s.settings}><View style={s.settingRow}><View><Text style={s.settingTitle}>Vibration feedback</Text><Text style={s.settingSub}>Boost, recharge and calibration</Text></View><Switch value={vibrate} onValueChange={setVibrate} trackColor={{ true: '#278c79', false: '#34434e' }} thumbColor={vibrate ? COLOR : '#a9b2b7'}/></View>

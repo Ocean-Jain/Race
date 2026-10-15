@@ -12,7 +12,7 @@ const MAX_STEER_ANGLE = 0.46;
 const EFFECTIVE_WHEELBASE = 34;
 const TWO_PI = Math.PI * 2;
 const wrappedAngleDelta = (from, to) => Math.atan2(Math.sin(to - from), Math.cos(to - from));
-let activeTrackId = 'silverstone';
+let activeTrackId = 'infinity';
 
 export function viewColumns(count) {
   if (count <= 3) return Math.max(1, count);
@@ -111,8 +111,8 @@ function carMaterial(color, options = {}) {
 }
 
 export class Race3D {
-  constructor(container, trackId = 'silverstone') {
-    activeTrackId = TRACKS.some(track => track.id === trackId) ? trackId : 'silverstone';
+  constructor(container, trackId = 'infinity') {
+    activeTrackId = TRACKS.some(track => track.id === trackId) ? trackId : 'infinity';
     this.trackId = activeTrackId;
     this.container = container;
     this.cars = new Map();
@@ -220,8 +220,8 @@ export class Race3D {
     this.scene.add(dashes, ...barrierMeshes.flat());
 
     if (TRACKS.find(track => track.id === this.trackId)?.bridge) {
-      // The Suzuka crossing rises above its return line, with approach ramps
-      // and supports outside the lower branch.
+      // The Infinity Circuit crossing rises above its return line, with
+      // approach ramps and supports outside the lower branch.
       const bridgeAt = TRACKS.find(track => track.id === this.trackId)?.bridgeAt ?? 0;
       const bridgeConcrete = new THREE.MeshStandardMaterial({ color: 0x77848a, roughness: 0.78 });
       for (const t of [bridgeAt - 0.18, bridgeAt, bridgeAt + 0.18]) {

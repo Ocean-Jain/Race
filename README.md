@@ -79,7 +79,7 @@ For local play, the laptop browser and phones must be able to reach each other o
 
 ## Controls and round flow
 
-- The browser host can choose Silverstone, Monza, Spa-Francorchamps, Suzuka, or Monaco in the lobby. The selected circuit is synchronized to connected phones and lobby browsers, appears in the controller and race HUD, and determines the race route and recharge pad positions. Track cards use lightweight schematic SVG outlines.
+- Every race uses the single Infinity Circuit. Its crossover is a bridge in the 3D world, and the same infinity-shaped route drives the lobby preview, minimap, recharge pads, and car handling.
 - Join in portrait; the controller locks to landscape after connecting. Rotate the phone left/right like a steering wheel to steer, then tap **Calibrate** to recenter. Steering uses the gyroscope with a small dead zone and smoothing, with a higher default sensitivity and an adjustable range up to 3×. Tilt input is ignored until the accelerator is first pressed; the car waits pointed along the circuit and then gets a gentle track-follow assist.
 - Cars accelerate only while **Accelerate** is held. Releasing it lets the car coast to a stop; **Brake** slows the car without putting it into reverse. Throttle acceleration has been reduced for more gradual speed buildup.
 - Hitting a track boundary resets the car to the track center at the collision point and holds it stationary for a two-second penalty. The camera eases after the reset rather than snapping to the new position.
@@ -98,7 +98,6 @@ Messages are JSON objects with a `type` field. The server limits message payload
 | --- | --- | --- |
 | Browser → server | `create` | Create a lobby; server responds `created` with room code. |
 | Phone → server | `join` | Join by room code and optional stored `playerId` for session resume. |
-| Browser → server | `trackSelect` | Select a supported circuit while the room is in the lobby; the server broadcasts the new `trackId` in room snapshots. |
 | Phone → server | `ready` | Set player readiness with a request ID; server replies `readyAck` and broadcasts the updated room roster. |
 | Phone → server | `input` | `{input:{steer,throttle,brake,jump,nitro,gyro:{x,y,z}}}`; steering is -1…1, throttle 0…1, and gyro axes are bounded by the server. |
 | Phone ↔ server | `ping`, `pong` | Server pings phones every 2 seconds; client echoes ID and server timestamp for RTT. Phones also ping to keep their live display current. |
