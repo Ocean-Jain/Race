@@ -65,6 +65,14 @@ function FooterCarGlyphs() {
   </span>;
 }
 
+function TrackWatermark() {
+  const track = 'M 55 250 C 55 78 278 60 390 250 C 502 440 725 422 725 250 C 725 78 502 60 390 250 C 278 440 55 422 55 250';
+  return <svg className="track-watermark" viewBox="0 0 780 500" aria-hidden="true">
+    <path className="track-watermark-edge" d={track}/>
+    <path className="track-watermark-center" d={track}/>
+  </svg>;
+}
+
 function MiniMap({ players }) {
   const figureEight = 'M 28 80 C 28 30 88 28 110 80 C 132 132 192 130 192 80 C 192 30 132 28 110 80 C 88 132 28 130 28 80';
   return <div className="minimap" aria-label="Live race map">
@@ -178,6 +186,7 @@ function App() {
   const finalResults = [...hud].sort((a, b) => b.score - a.score || (b.laps || 0) - (a.laps || 0) || a.name.localeCompare(b.name));
 
   return <main className="shell">
+    <TrackWatermark/>
     <header className="top">
       <a className="brand" href="#"><span className="logo">T</span><span>TILT<span className="accent">RACE</span></span></a>
       <span className={`server ${connected ? 'online' : ''}`}><i/>{connected ? 'SERVER CONNECTED' : 'SERVER OFFLINE'}</span>
