@@ -7,6 +7,64 @@ import './style.css';
 const WS = import.meta.env.VITE_WS_URL || (location.protocol === 'https:' ? `wss://${location.host}` : `ws://${location.hostname}:3001`);
 const PLAYER_COLORS = [0x38d9ff,0xff6c5c,0xc084fc,0xffcb45,0x72e394,0xff78bd,0x8ba5ff,0xff925c];
 
+function EmptyGridCar() {
+  return <svg className="empty-car-art" viewBox="0 0 280 156" aria-hidden="true">
+    <defs>
+      <linearGradient id="car-trim" x1="0" y1="0" x2="1" y2="1"><stop stopColor="#a3ffe0"/><stop offset=".52" stopColor="#46e2d1"/><stop offset="1" stopColor="#38bde8"/></linearGradient>
+      <linearGradient id="car-glass" x1=".15" y1="0" x2=".9" y2="1"><stop stopColor="#173441"/><stop offset="1" stopColor="#091721"/></linearGradient>
+      <filter id="car-neon" x="-35%" y="-45%" width="170%" height="190%"><feGaussianBlur stdDeviation="3.5" result="blur"/><feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
+    </defs>
+    <ellipse cx="140" cy="132" rx="83" ry="8" fill="#42e5cf" opacity=".13"/>
+    <g className="car-speed-lines" fill="none" stroke="url(#car-trim)" strokeLinecap="round" opacity=".55">
+      <path d="M40 87H78M30 98H66M42 109H73M240 87h-38m48 11h-38m29 11h-32" strokeWidth="2"/>
+      <path d="M58 77h24m140 0h-24" strokeWidth="1.5" opacity=".65"/>
+    </g>
+    <g filter="url(#car-neon)" stroke="url(#car-trim)" strokeLinejoin="round" strokeLinecap="round">
+      <path d="M70 111 75 91Q77 83 86 78L101 69 111 48Q114 42 122 41H158Q166 42 169 48L179 69 194 78Q203 83 205 91L210 111 198 121H82Z" fill="#0d1b25" strokeWidth="2.3"/>
+      <path d="m101 68 10-19q2-4 8-4h42q6 0 8 4l10 19-16 4h-46Z" fill="url(#car-glass)" strokeWidth="1.8"/>
+      <path d="m140 46 .5 25" fill="none" strokeWidth="1.3" opacity=".65"/>
+      <path d="m89 81 18-6h66l18 6-13 8h-76Z" fill="#10232d" strokeWidth="1.5"/>
+      <path d="m80 94 16-5 13 3-3 8-25 2Zm120 0-16-5-13 3 3 8 25 2Z" fill="#baffdf" strokeWidth="1.6"/>
+      <path d="M76 106q22-5 64-5t64 5l-7 12H83Z" fill="#10212b" strokeWidth="1.8"/>
+      <path d="M108 113h64m-54 5h44" fill="none" strokeWidth="1.4" opacity=".8"/>
+      <path d="m73 92-8 4m142-4 8 4" fill="none" strokeWidth="2.2"/>
+    </g>
+    <path d="M118 54h44" stroke="#a5f9e0" strokeWidth="1" opacity=".55"/>
+  </svg>;
+}
+
+function FormulaCarWatermark() {
+  return <svg className="formula-car-watermark" viewBox="0 0 620 420" fill="none" aria-hidden="true">
+    <g stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+      {/* Rear wing and tapered engine cover */}
+      <path d="M113 247 157 237 203 242 253 228 291 203 337 191 388 200 435 222 493 231 534 244 565 248"/>
+      <path d="m91 235 69-9 25 4 17 13m-75 5-15 19 47 6 26-16m362-20 35 6-3 16-38 1"/>
+      <path d="m161 226 7-29 13-7 13 11 7 36m-23-46-2-17 20-2 8 17"/>
+      {/* Cockpit halo and driver */}
+      <path d="m234 234 14-39 22-26 33-10 39 7 29 22 13 29"/>
+      <path d="m254 203 18-24 28-9 24 5 20 17 10 23-25-4-20-14-20 3-18 13Z"/>
+      <path d="m282 190 4-17 14-11 16 3 8 11-8 13-18 5Zm3-17 21 4 10-9m-57 29-15-9-13 4-9 23m123-32 21 4 18 16"/>
+      {/* Nose, front wing and suspension */}
+      <path d="m264 232 25 10 33 7 40 1 38-7 23-13 30 11 22 12-5 11-47 3-26-5-26 12-40 7-49-5-35-13-45 3-35-6 16-13 38-12 43-3Z"/>
+      <path d="m282 241 27-14 22-2 23 9 26 9m-87-3-18 17m128-18 22 11m-168-13-28 12-22 1m245-13 30 8 14 9-38 2"/>
+      {/* Exposed wheels, rims and small speed details */}
+      <path d="M195 242c-18-4-34 7-38 24-4 18 7 34 24 38 18 4 34-7 38-24 4-18-7-34-24-38Zm240-5c-18-4-34 7-38 24-4 18 7 34 24 38 18 4 34-7 38-24 4-18-7-34-24-38Z"/>
+      <path d="M192 254c-10-2-19 4-21 14-2 10 4 19 14 21 10 2 19-4 21-14 2-10-4-19-14-21Zm240-5c-10-2-19 4-21 14-2 10 4 19 14 21 10 2 19-4 21-14 2-10-4-19-14-21Z"/>
+      <path d="m302 232 13 13m44-4 12-15m-174 63-19 10m264-12 24 11m-347-43h38m-30 13h27m342-20h39m-31 14h28"/>
+      {/* Fine technical contour accents */}
+      <path d="m196 214 31-8m165 13 38 7m-189 47 38 5m115 7 38-5" strokeWidth="1"/>
+    </g>
+  </svg>;
+}
+
+function FooterCarGlyphs() {
+  return <span className="footer-car-glyphs" aria-hidden="true">
+    <svg viewBox="0 0 40 22"><path d="M3 14h5l4-5h12l5 5h5v4h-4a3 3 0 0 1-6 0h-9a3 3 0 0 1-6 0H3Zm10-5 2-4h7l4 4M2 12h6m24 0h6"/></svg>
+    <svg viewBox="0 0 40 22"><path d="M5 14h4l3-6q1-2 3-2h9q3 0 5 3l4 5h3v4h-4a3 3 0 0 1-6 0H15a3 3 0 0 1-6 0H5Zm8-6-2 6m4-7h7l4 7M2 13h5m27 0h4"/></svg>
+    <svg viewBox="0 0 40 22"><path d="M3 14h4l4-5q2-2 5-2h12l5 4 4 1v6h-4a3 3 0 0 1-6 0H14a3 3 0 0 1-6 0H3Zm9-5 2-3h13l3 5H11m3-4h9m-20 5H1m36 0h2"/></svg>
+  </span>;
+}
+
 function MiniMap({ players }) {
   const figureEight = 'M 28 80 C 28 30 88 28 110 80 C 132 132 192 130 192 80 C 192 30 132 28 110 80 C 88 132 28 130 28 80';
   return <div className="minimap" aria-label="Live race map">
@@ -125,6 +183,7 @@ function App() {
       <span className={`server ${connected ? 'online' : ''}`}><i/>{connected ? 'SERVER CONNECTED' : 'SERVER OFFLINE'}</span>
     </header>
     {phase === 'welcome' && <section className="welcome">
+      <FormulaCarWatermark/>
       <div className="eyebrow">3D ARCADE RACING · PHONE MOTION CONTROLS</div>
       <h1>Race with a<br/><em>new perspective.</em></h1>
       <p>Turn your phone into a steering wheel. Join the room, lean into the corners, and race your friends on the big screen.</p>
@@ -136,8 +195,8 @@ function App() {
       <div className="lobby-title"><div><div className="eyebrow">ROOM READY</div><h1>Get your crew<br/><em>on the grid.</em></h1></div><div className="room-pill"><small>ROOM CODE</small><strong>{room}</strong></div></div>
       <div className="pair-grid">
         <div className="qr-panel"><div className="qrwrap">{qr && <img src={qr} alt={`QR code to join room ${room}`}/>}</div><h2>Scan to join</h2><p>Open your phone camera and point it at the code.</p><button className="copy" onClick={() => navigator.clipboard?.writeText(room)}>Copy room code</button></div>
-        <div className="players-panel"><div className="panel-heading">PLAYERS <span>{players.length} / 8</span></div>
-          {players.length === 0 ? <div className="empty"><span className="waiting-icon">⌖</span><b>Waiting for racers</b><span>Join from your phone to appear here.</span></div> : <div className="roster">{players.map((player,i) => <div className="racer" key={player.id}><i style={{background:`#${PLAYER_COLORS[i % PLAYER_COLORS.length].toString(16)}`}}/><span><b>{player.name}</b><small>{player.connected ? 'Connected' : 'Reconnecting'} · {player.latency ?? '—'} ms</small></span><strong className={player.ready ? 'ready' : ''}>{player.ready ? 'READY' : 'JOINED'}</strong></div>)}</div>}
+        <div className={`players-panel ${players.length === 0 ? 'waiting-panel' : ''}`}><div className="panel-heading">PLAYERS <span>{players.length} / 8</span></div>
+          {players.length === 0 ? <div className="empty empty-state"><EmptyGridCar/><b>Waiting for racers</b><span>Join from your phone to appear here.</span></div> : <div className="roster">{players.map((player,i) => <div className="racer" key={player.id}><i style={{background:`#${PLAYER_COLORS[i % PLAYER_COLORS.length].toString(16)}`}}/><span><b>{player.name}</b><small>{player.connected ? 'Connected' : 'Reconnecting'} · {player.latency ?? '—'} ms</small></span><strong className={player.ready ? 'ready' : ''}>{player.ready ? 'READY' : 'JOINED'}</strong></div>)}</div>}
           {keyboardOn && <div className="racer"><i style={{background:'#ffcb45'}}/><span><b>Keyboard</b><small>WASD / arrows</small></span><strong className="ready">READY</strong></div>}
           <div className="lobby-actions"><button className="secondary" onClick={addKeyboard}>＋ Add keyboard racer</button><button className="primary" disabled={(!players.length && !keyboardOn) || players.some(player => !player.ready || !player.connected)} onClick={start}>Start race <span>→</span></button></div>
         </div>
@@ -162,7 +221,7 @@ function App() {
       </> : <div className="finish-panel"><div className="eyebrow">CHECKERED FLAG · RANKED BY POINTS</div><h2>That’s the round.</h2>{finalResults.map((player,i) => <div className="finish-player" key={player.id}><b>#{i+1}　{player.name}<small>{player.laps || 0} {player.laps === 1 ? 'lap' : 'laps'}</small></b><span>{player.score} pts</span></div>)}</div>}
     </section>}
     {error && <div role="status" className="toast" onClick={() => setError('')}>{error}<button aria-label="Dismiss">×</button></div>}
-    <footer><span>TILT<span className="accent">RACE</span> <small>ONE TRACK, EVERY RACER.</small></span><span>ONE LAP AT A TIME</span></footer>
+    <footer><div className="footer-brandline"><FooterCarGlyphs/><span className="footer-wordmark">TILT<span className="accent">RACE</span><small>ONE TRACK, EVERY RACER.</small></span></div><span className="footer-signoff">ONE LAP AT A TIME</span></footer>
   </main>;
 }
 
