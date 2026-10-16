@@ -1,3 +1,6 @@
+Link to the website: https://tiltrace.onrender.com
+The app will be required to play the game.
+
 # TiltRace
 
 TiltRace is a small multiplayer arcade racer. A browser runs the race and creates a room; phones join as motion controllers over the WebSocket server. Deploy it publicly to let players join from different Wi-Fi networks or cellular data.
