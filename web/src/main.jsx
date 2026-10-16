@@ -79,7 +79,9 @@ function MiniMap({ players, trackId }) {
       <rect x={110 + start.x * .25 - 8} y={50 + start.z * .17 - 2} width="16" height="4" rx="1" className="map-finish" transform={`rotate(${finishAngle} ${110 + start.x * .25} ${50 + start.z * .17})`}/>
       {players.map(player => <g key={player.id} transform={`translate(${110 + (player.x - 600) * .25} ${50 + (player.z - 470) * .17}) rotate(${player.yaw * 180 / Math.PI})`}>
         <circle className="map-player-glow" r="5" fill={player.color || '#ffffff'}/>
-        <path className="map-player-marker" d="M0 -8 L4.5 5 L0 2.5 L-4.5 5 Z" fill={player.color || '#ffffff'} stroke="#07131c" strokeWidth="1.2"/>
+        <path className="map-player-marker" d="M0 -8 C2 -8 2.8 -5.7 3.2 -3.6 L4.7 -.6 V3.7 H3.3 V6.8 H-3.3 V3.7 H-4.7 V-.6 L-3.2 -3.6 C-2.8 -5.7 -2 -8 0 -8Z" fill={player.color || '#ffffff'} stroke="#07131c" strokeWidth="1.1"/>
+        <ellipse className="map-player-cockpit" cx="0" cy="-2" rx="1.45" ry="2"/>
+        <path className="map-player-wing" d="M-4.6 3.1h9.2"/>
       </g>)}
     </svg>
     <div className="minimap-legend">N <span>● racers</span></div>

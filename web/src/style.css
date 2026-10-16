@@ -186,3 +186,22 @@ footer{border-top-color:#d4e4ff12;color:#a4b1c0}.footer-brandline{display:flex;a
 .minimap-legend span{color:#b8c7d1}
 .shell.immersive .minimap,.shell:fullscreen .minimap{width:min(76vw,760px);min-width:280px}
 @media(max-width:700px){.minimap{top:50%;width:calc(100% - 24px);min-width:0;padding:12px 14px 9px;border-radius:14px}.minimap-heading{min-height:26px;font-size:21px}.minimap-heading span{font-size:18px}.minimap-heading span::after{width:7px;height:7px}.minimap svg{max-height:34vh;margin:8px 0 4px}.map-track-outer{stroke-width:26}.map-track-inner{stroke-width:19}.map-track-dash{stroke-width:1.15}.minimap-legend{font-size:8px}.shell.immersive .minimap,.shell:fullscreen .minimap{width:calc(100% - 18px);min-width:0}}
+
+/* Compact black translucent minimap with direction-oriented car markers. */
+.minimap,.shell.immersive .minimap,.shell:fullscreen .minimap{top:9px;left:50%;right:auto;transform:translateX(-50%);width:min(22vw,220px);min-width:155px;padding:7px 9px 5px;border:1px solid #a7b4c044;border-radius:11px;background:rgba(0,0,0,.74);backdrop-filter:blur(9px);-webkit-backdrop-filter:blur(9px);box-shadow:0 8px 24px #0009,inset 0 1px #ffffff12}
+.minimap::before{background:linear-gradient(145deg,#ffffff0a,transparent 54%)}
+.minimap-heading{min-height:18px;color:#d9e5eb;font:700 9px 'DM Mono',monospace;letter-spacing:.8px;text-shadow:0 1px 3px #000}
+.minimap-heading span{gap:4px;padding:2px 5px;border:1px solid #3bca9150;border-radius:999px;background:#0a261a9c;color:#80e9ad;font:700 7px 'DM Mono',monospace;letter-spacing:.7px;text-shadow:none}
+.minimap-heading span::after{width:5px;height:5px;background:#66e99a;box-shadow:0 0 5px #66e99a66}
+.minimap svg{max-height:none;margin:3px 0 2px}
+.map-track-outer{stroke:#373e44;stroke-width:27;filter:none}
+.map-track-inner{stroke:#090b0d;stroke-width:20}
+.map-track-dash{stroke:#8bafb5;stroke-width:1;stroke-dasharray:2.2 2.4;opacity:.76;filter:none}
+.map-finish{fill:#dfe5e8;stroke:#050607;stroke-width:1}
+.map-player-glow{opacity:.3;filter:none}
+.map-player-marker{stroke:#030405;stroke-width:1.1;filter:drop-shadow(0 1px 2px #000)}
+.map-player-cockpit{fill:#11191d;stroke:#e1f5f8;stroke-width:.55}
+.map-player-wing{fill:none;stroke:#050607;stroke-width:1.35;stroke-linecap:round}
+.minimap-legend{color:#94a2aa;font-size:7px;letter-spacing:.35px}
+.minimap-legend span{color:#abb7be}
+@media(max-width:700px){.minimap,.shell.immersive .minimap,.shell:fullscreen .minimap{top:7px;width:min(34vw,170px);min-width:145px;padding:5px 7px 4px}.minimap-heading{min-height:16px;font-size:8px}.minimap-heading span{font-size:6px}.minimap-heading span::after{width:4px;height:4px}.map-track-outer{stroke-width:25}.map-track-inner{stroke-width:19}}
