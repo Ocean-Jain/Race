@@ -75,6 +75,8 @@ The server supports an optional comma-separated `ALLOWED_ORIGINS` environment va
 4. Scan the browser QR or enter `ws://LAPTOP-IP:3001` and the room code in the phone app. The QR encodes both server address and room. Scanning requires camera permission; code entry is always available.
 5. Scan and join while the phone is in portrait. After joining, it rotates to landscape; hold it like a steering wheel, tap **Calibrate**, and rotate it left/right to steer. Tap **Ready to race** to tell the browser you are ready. The laptop host starts the round when racers are ready.
 
+The server reuses an existing racer record when a controller reconnects with its stored player ID. If the last phone racer disconnects during a race, the server ends that round.
+
 For local play, the laptop browser and phones must be able to reach each other over Wi-Fi. Open inbound TCP ports 5173 (web page) and 3001 (WebSocket) on the laptop's private network if the firewall asks. The QR is generated in the browser and is not uploaded to a service.
 
 ## Controls and round flow
@@ -105,7 +107,7 @@ Messages are JSON objects with a `type` field. The server limits message payload
 | Browser → server | `state` | Position snapshots for server-checked recharge zones; snapshots are throttled at 16 Hz. |
 | Server → clients | `room`, `control`, `gameState`, `nitro`, `recharge`, `readyAck`, `browserGone` | Lobby/player state, controls, scores, authoritative nitro updates, readiness confirmation, and race-page disconnect notices. |
 
-Disconnected player records are retained for 60 seconds. The controller stores the room, server address, display name, and player ID locally, reconnects with exponential backoff, and reuses the ID when the session is still present. A room is removed after the browser and all player sessions have gone away.
+Disconnected player records are retained for 60 seconds for lobby reconnects. The controller stores the room, server address, display name, and player ID locally, reconnects with exponential backoff, and reuses the ID when the session is still present. A room is removed after the browser and all player sessions have gone away.
 
 ## Network, permissions, and troubleshooting
 

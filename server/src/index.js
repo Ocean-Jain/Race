@@ -52,6 +52,10 @@ function broadcast(room, type, data = {}) { const packet = JSON.stringify({ type
 function announce(room) { broadcast(room, 'room', { state: roomSnapshot(room) }); }
 function getRoom(id) { return typeof id === 'string' ? rooms.get(id.toUpperCase()) : null; }
 function safeName(value) { return typeof value === 'string' ? value.trim().replace(/[<>\u0000-\u001f]/g, '').slice(0, 18) || 'Racer' : 'Racer'; }
+function finishIfNoRacers(room) {
+  const phoneRacerConnected = [...room.players.values()].some(player => player.ws?.readyState === WebSocket.OPEN);
+  if (room.phase === 'racing' && !room.keyboard && !phoneRacerConnected) room.phase = 'finished';
+}
 function onMessage(ws, raw) {
   let m; try { m = JSON.parse(raw.toString()); } catch { return send(ws, 'error', { message: 'Invalid JSON.' }); }
   if (!m || typeof m.type !== 'string') return send(ws, 'error', { message: 'Malformed message.' });
@@ -59,7 +63,7 @@ function onMessage(ws, raw) {
   if (m.type === 'create') {
     if (context) return send(ws, 'error', { message: 'This connection already joined a room.' });
     let id; do { id = code(); } while (rooms.has(id));
-    const room = { code: id, browsers: new Set([ws]), players: new Map(), phase: 'lobby', startedAt: null, trackId: TRACK_ID, rechargeZones: rechargeZones(TRACK_ID), stateAt: 0, lastState: [] };
+    const room = { code: id, browsers: new Set([ws]), players: new Map(), phase: 'lobby', startedAt: null, trackId: TRACK_ID, keyboard: false, rechargeZones: rechargeZones(TRACK_ID), stateAt: 0, lastState: [] };
     rooms.set(id, room); clients.set(ws, { role: 'browser', room });
     return send(ws, 'created', { room: id, state: roomSnapshot(room) });
   }
@@ -68,10 +72,14 @@ function onMessage(ws, raw) {
     const room = getRoom(m.room); if (!room) return send(ws, 'error', { message: 'Room not found. Check the code and try again.' });
     if (room.phase !== 'lobby') return send(ws, 'error', { message: 'This race has already started.' });
     const resume = typeof m.playerId === 'string' && room.players.get(m.playerId);
-    if (resume && Date.now() - resume.disconnectedAt < SESSION_TTL) {
-      resume.ws?.close(); resume.ws = ws; resume.disconnectedAt = null; clients.set(ws, { role: 'player', room, playerId: resume.id });
+    if (resume && (resume.ws?.readyState === WebSocket.OPEN || (resume.disconnectedAt && Date.now() - resume.disconnectedAt < SESSION_TTL))) {
+      // Reuse the existing racer record on reconnect, even if its previous
+      // socket is still open. This prevents the same stored player session
+      // from creating a second racer entry.
+      resume.ws?.close(4001, 'Session resumed'); resume.ws = ws; resume.disconnectedAt = null; clients.set(ws, { role: 'player', room, playerId: resume.id });
       send(ws, 'joined', { playerId: resume.id, name: resume.name, resumed: true, browserConnected: room.browsers.size > 0, state: roomSnapshot(room) }); announce(room); return;
     }
+    if (resume) room.players.delete(resume.id);
     if (room.players.size >= 8) return send(ws, 'error', { message: 'Room is full (8 racers maximum).' });
     const player = { id: randomUUID(), name: safeName(m.name), ws, ready: false, latency: null, nitro: 100, score: 0, input: { steer: 0, throttle: 0, brake: false, jump: false, nitro: false }, lastInputAt: 0, disconnectedAt: null };
     room.players.set(player.id, player); clients.set(ws, { role: 'player', room, playerId: player.id });
@@ -82,9 +90,9 @@ function onMessage(ws, raw) {
   if (m.type === 'ping') return send(ws, 'pong', { id: m.id, sentAt: m.sentAt, serverAt: Date.now() });
   if (m.type === 'pong' && context.role === 'player') { const p = room.players.get(context.playerId); if (p && Number.isFinite(Number(m.sentAt))) { p.latency = Math.max(0, Math.min(9999, Date.now() - Number(m.sentAt))); announce(room); } return; }
   if (context.role === 'browser') {
-    if (m.type === 'start') { if (room.players.size < 1 && !m.keyboard) return send(ws, 'error', { message: 'At least one phone or keyboard racer is required.' }); room.phase = 'racing'; room.startedAt = Date.now(); announce(room); return; }
+    if (m.type === 'start') { if (room.players.size < 1 && !m.keyboard) return send(ws, 'error', { message: 'At least one phone or keyboard racer is required.' }); room.keyboard = !!m.keyboard; room.phase = 'racing'; room.startedAt = Date.now(); announce(room); return; }
     if (m.type === 'finish') { if (room.phase === 'racing') { room.phase = 'finished'; announce(room); } return; }
-    if (m.type === 'restart') { room.phase = 'lobby'; room.startedAt = null; for (const p of room.players.values()) { p.ready = false; p.nitro = 100; p.score = 0; p.input = { steer: 0, throttle: 0, brake: false, jump: false, nitro: false }; } announce(room); return; }
+    if (m.type === 'restart') { room.phase = 'lobby'; room.keyboard = false; room.startedAt = null; for (const p of room.players.values()) { p.ready = false; p.nitro = 100; p.score = 0; p.input = { steer: 0, throttle: 0, brake: false, jump: false, nitro: false }; } announce(room); return; }
     if (m.type === 'state' && Array.isArray(m.cars)) {
       // Browser submits only position/score claims. The server owns nitro and validates pickup zones.
       const now = Date.now(); if (now - room.stateAt < 45) return; room.stateAt = now;
@@ -102,6 +110,9 @@ function onMessage(ws, raw) {
   }
   if (context.role === 'player') {
     const p = room.players.get(context.playerId); if (!p || p.ws !== ws) return send(ws, 'error', { message: 'Session expired. Rejoin the room.' });
+    if (m.type === 'leave') {
+      room.players.delete(p.id); p.ws = null; clients.delete(ws); finishIfNoRacers(room); announce(room); cleanup(room); ws.close(1000, 'Left race'); return;
+    }
     if (m.type === 'ready') {
       p.ready = !!m.ready;
       send(ws, 'readyAck', { requestId: typeof m.requestId === 'string' ? m.requestId.slice(0, 64) : null, playerId: p.id, ready: p.ready });
@@ -126,7 +137,7 @@ wss.on('connection', (ws, req) => {
   ws.on('close', () => {
     const c = clients.get(ws); clients.delete(ws); if (!c) return;
     if (c.role === 'browser') { c.room.browsers.delete(ws); if (!c.room.browsers.size) for (const p of c.room.players.values()) send(p.ws, 'browserGone'); }
-    else { const p = c.room.players.get(c.playerId); if (p?.ws === ws) { p.ws = null; p.disconnectedAt = Date.now(); announce(c.room); setTimeout(() => { if (p.ws || Date.now() - p.disconnectedAt < SESSION_TTL) return; c.room.players.delete(p.id); announce(c.room); cleanup(c.room); }, SESSION_TTL + 100); } }
+    else { const p = c.room.players.get(c.playerId); if (p?.ws === ws) { p.ws = null; p.disconnectedAt = Date.now(); finishIfNoRacers(c.room); announce(c.room); setTimeout(() => { if (p.ws || Date.now() - p.disconnectedAt < SESSION_TTL) return; c.room.players.delete(p.id); finishIfNoRacers(c.room); announce(c.room); cleanup(c.room); }, SESSION_TTL + 100); } }
   });
   ws.on('error', err => console.warn('WebSocket error:', err.message));
 });

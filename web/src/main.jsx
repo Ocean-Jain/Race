@@ -78,7 +78,8 @@ function MiniMap({ players, trackId }) {
       <path d={trackPath} className="map-track-dash"/>
       <rect x={110 + start.x * .25 - 8} y={50 + start.z * .17 - 2} width="16" height="4" rx="1" className="map-finish" transform={`rotate(${finishAngle} ${110 + start.x * .25} ${50 + start.z * .17})`}/>
       {players.map(player => <g key={player.id} transform={`translate(${110 + (player.x - 600) * .25} ${50 + (player.z - 470) * .17}) rotate(${player.yaw * 180 / Math.PI})`}>
-        <path d="M0 -8 L4.5 5 L0 2.5 L-4.5 5 Z" fill={player.color || '#ffffff'} stroke="#06131b" strokeWidth="1.2"/>
+        <circle className="map-player-glow" r="5" fill={player.color || '#ffffff'}/>
+        <path className="map-player-marker" d="M0 -8 L4.5 5 L0 2.5 L-4.5 5 Z" fill={player.color || '#ffffff'} stroke="#07131c" strokeWidth="1.2"/>
       </g>)}
     </svg>
     <div className="minimap-legend">N <span>● racers</span></div>
@@ -94,6 +95,7 @@ function Dashboard({ player }) {
       <div className="dash-readout"><small>GEAR</small><strong>{speed ? 'D' : 'N'}</strong><span>SPORT</span></div>
       <div className="speedometer">
         <svg viewBox="0 0 120 76" aria-hidden="true">
+          <path className="gauge-ticks" d="M18 66v-7m4-10 5 2m3-15 4 4m9-13 2 6m19-10v7m18-1-2 6m15 5-4 4m10 11-5 2m10 9v-7"/>
           <path className="gauge-track" d="M18 66 A42 42 0 1 1 102 66"/>
           <path className="gauge-active" d="M18 66 A42 42 0 1 1 102 66" pathLength="100" style={{ strokeDasharray:`${speed / 120 * 100} 100` }}/>
           <g transform={`rotate(${needle} 60 65)`}><path className="gauge-needle" d="M60 65 L60 27"/><circle className="gauge-hub" cx="60" cy="65" r="3.5"/></g>
@@ -106,14 +108,28 @@ function Dashboard({ player }) {
 }
 
 function App() {
-  const stageRef = useRef(null), gameRef = useRef(null), wsRef = useRef(null);
+  const stageRef = useRef(null), gameRef = useRef(null), wsRef = useRef(null), shellRef = useRef(null);
   const finishedRef = useRef(false);
   const [room,setRoom] = useState(''), [players,setPlayers] = useState([]), [phase,setPhase] = useState('welcome');
   const trackId = 'infinity';
   const [qr,setQr] = useState(''), [hud,setHud] = useState([]), [error,setError] = useState('');
   const [connected,setConnected] = useState(false), [timer,setTimer] = useState(0), [keyboardOn,setKeyboardOn] = useState(false);
+  const [immersive,setImmersive] = useState(false);
 
   useEffect(() => { const onHud = e => setHud(e.detail); window.addEventListener('hud', onHud); return () => window.removeEventListener('hud', onHud); }, []);
+  useEffect(() => {
+    const syncFullscreen = () => setImmersive(document.fullscreenElement === shellRef.current);
+    const onKeyDown = event => { if (event.key === 'Escape' && document.fullscreenElement !== shellRef.current) setImmersive(false); };
+    document.addEventListener('fullscreenchange', syncFullscreen);
+    window.addEventListener('keydown', onKeyDown);
+    return () => { document.removeEventListener('fullscreenchange', syncFullscreen); window.removeEventListener('keydown', onKeyDown); };
+  }, []);
+  useEffect(() => {
+    if (!immersive) return;
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    return () => { document.body.style.overflow = previousOverflow; };
+  }, [immersive]);
   useEffect(() => {
     const stage = stageRef.current;
     if (phase !== 'racing' || !stage) return;
@@ -173,7 +189,22 @@ function App() {
     window.sendRoom?.({ type:'start', keyboard:keyboardOn });
     setTimer(0); setPhase('racing');
   }
-  function restart() { finishedRef.current = false; window.sendRoom?.({ type:'restart' }); setTimer(0); setPhase('lobby'); }
+  async function toggleImmersive() {
+    if (immersive) {
+      if (document.fullscreenElement === shellRef.current) await document.exitFullscreen?.();
+      setImmersive(false);
+      return;
+    }
+    try {
+      if (shellRef.current?.requestFullscreen) await shellRef.current.requestFullscreen();
+      else setError('Browser fullscreen is unavailable; using immersive layout. Press Escape to exit.');
+      setImmersive(true);
+    } catch {
+      setImmersive(true);
+      setError('Browser fullscreen was blocked. Immersive layout is active; press Escape to exit.');
+    }
+  }
+  function restart() { finishedRef.current = false; window.sendRoom?.({ type:'restart' }); if (document.fullscreenElement === shellRef.current) document.exitFullscreen?.(); setImmersive(false); setTimer(0); setPhase('lobby'); }
   function addKeyboard() { setKeyboardOn(true); setError('Keyboard racer added: WASD or arrows to drive, Space for nitro, Shift to jump.'); }
 
   const hudById = new Map(hud.map(player => [player.id, player]));
@@ -182,7 +213,7 @@ function App() {
   const finalResults = [...hud].sort((a, b) => b.score - a.score || (b.laps || 0) - (a.laps || 0) || a.name.localeCompare(b.name));
   const activeCircuit = CIRCUITS[0];
 
-  return <main className="shell">
+  return <main ref={shellRef} className={`shell${immersive ? ' immersive' : ''}`}>
     <TrackWatermark/>
     <header className="top">
       <a className="brand" href="#"><span className="logo">T</span><span>TILT<span className="accent">RACE</span></span></a>
@@ -214,13 +245,13 @@ function App() {
       <p className="lobby-foot">QR server: <code>{WS}</code>. Scan to connect, then tap <b>Ready to race</b>.</p>
     </section>}
     {(phase === 'racing' || phase === 'finished') && <section className="race-view">
-      <div className="race-head"><div><div className="eyebrow">ROOM {room} · {activeCircuit.flag} {activeCircuit.name} · {racers.length} RACER{racers.length === 1 ? '' : 'S'}</div><h1>{phase === 'finished' ? <>Round <em>complete</em></> : <>Race <em>in progress</em></>}</h1></div><div className="race-tools"><span className="timer">⏱ {String(Math.floor(clock/60)).padStart(2,'0')}:{String(clock%60).padStart(2,'0')}</span><button className="secondary" onClick={restart}>↻ {phase === 'finished' ? 'Race again' : 'New round'}</button></div></div>
+      <div className="race-head"><div><div className="race-meta"><span className="race-meta-badge room-meta"><small>ROOM</small><b>{room}</b></span><span className="race-meta-badge circuit-meta"><small>CIRCUIT</small><b>{activeCircuit.flag} {activeCircuit.name}</b></span><span className="race-meta-badge racer-meta"><b>{racers.length}</b><small>RACER{racers.length === 1 ? '' : 'S'}</small></span></div><h1>{phase === 'finished' ? <>Round <em>complete</em></> : <>Race <em>in progress</em></>}</h1></div><div className="race-tools"><span className="timer">⏱ {String(Math.floor(clock/60)).padStart(2,'0')}:{String(clock%60).padStart(2,'0')}</span><button className="secondary" onClick={restart}>↻ {phase === 'finished' ? 'Race again' : 'New round'}</button><button className="secondary immersive-toggle" onClick={toggleImmersive} aria-pressed={immersive} title={immersive ? 'Exit immersive mode' : 'Enter immersive mode'}><span aria-hidden="true">⛶</span> {immersive ? 'Exit fullscreen' : 'Fullscreen'}</button></div></div>
       {phase === 'racing' ? <>
         <div className="race-stage" ref={stageRef}>
           <div className="race-panels" style={{ '--view-columns':columns }}>
             {racers.map(player => { const live = hudById.get(player.id); return <div className="race-player-cell" key={player.id}>
               <div className="cell-name"><i style={{background:live?.color || player.color}}/><span>{live?.name || player.name}</span></div>
-              <div className="cell-stats"><b>{live?.speed ?? 0}<small> km/h</small></b><span>{live?.score ?? 0} pts · {live?.laps ?? 0} laps</span>{live?.penaltyRemaining > 0 && <span className="penalty-badge">PENALTY · {live.penaltyRemaining.toFixed(1)}s</span>}<div className="cell-meter"><i style={{width:`${live?.nitro ?? player.nitro ?? 100}%`}}/></div></div>
+              <div className="cell-stats"><b className="cell-speed">{live?.speed ?? 0}<small> km/h</small></b><span className="cell-results"><b>{live?.score ?? 0}<small>PTS</small></b><i/><b>{live?.laps ?? 0}<small>LAPS</small></b></span>{live?.penaltyRemaining > 0 && <span className="penalty-badge">PENALTY · {live.penaltyRemaining.toFixed(1)}s</span>}<div className="cell-meter"><i style={{width:`${live?.nitro ?? player.nitro ?? 100}%`}}/></div></div>
               <Dashboard player={live}/>
             </div>; })}
           </div>
