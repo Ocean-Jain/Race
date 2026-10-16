@@ -10,6 +10,10 @@ const BRIDGE_HEIGHT = 12;
 const BRIDGE_RAMP_SPAN = 0.3;
 const MAX_STEER_ANGLE = 0.46;
 const EFFECTIVE_WHEELBASE = 34;
+const DISPLAY_SPEED_SCALE = 0.72;
+const BASE_SPEED_LIMIT = 81 / DISPLAY_SPEED_SCALE;
+const NITRO_SPEED_LIMIT = 100 / DISPLAY_SPEED_SCALE;
+const NITRO_DURATION_MS = 1000;
 const TWO_PI = Math.PI * 2;
 const wrappedAngleDelta = (from, to) => Math.atan2(Math.sin(to - from), Math.cos(to - from));
 let activeTrackId = 'infinity';
@@ -399,7 +403,7 @@ export class Race3D {
       z: spawn.z, yaw: Math.atan2(tangent.x, -tangent.z), speed: 0, nitro: player.nitro ?? 100,
       score: 0, laps: 0, lapProgress: 0, lastTrackT: trackT, checkpointPassed: false,
       ready: player.ready, connected: player.connected, latency: player.latency,
-      driveStarted: false, jump: 0, penaltyRemaining: 0, boost: false, index, bodyMat, labelTex, label, frontWheels,
+      driveStarted: false, jump: 0, penaltyRemaining: 0, boost: false, nitroBoostUntil: 0, wasNitro: false, cameraFov: 72, index, bodyMat, labelTex, label, frontWheels,
     };
     group.position.set(car.x, trackHeight(trackT), car.z); group.rotation.y = -car.yaw;
     this.cars.set(car.id, car);
@@ -438,7 +442,6 @@ export class Race3D {
     if (!car) return;
     const input = { steer: THREE.MathUtils.clamp(player.steer || 0, -1, 1), throttle: THREE.MathUtils.clamp(player.throttle || 0, 0, 1), brake: !!player.brake, jump: !!player.jump, nitro: !!player.nitro };
     this.remote.set(player.id, { input, receivedAt: performance.now() });
-    car.boost = input.nitro;
   }
 
   applyServerState(cars) {
@@ -467,6 +470,7 @@ export class Race3D {
     car.penaltyRemaining = Math.max(0, ((car.penaltyUntil || 0) - performance.now()) / 1000);
     if (car.penaltyRemaining > 0) {
       car.speed = 0;
+      car.boost = false;
       car.jump = 0;
       car.frontWheels.forEach(wheel => { wheel.rotation.y = 0; });
       const stoppedTrack = trackFrame(car.lastTrackT);
@@ -491,16 +495,20 @@ export class Race3D {
     const steering = car.driveStarted && !firstThrottleFrame
       ? THREE.MathUtils.clamp(input.steer * steeringGain + trackAssist, -1, 1)
       : 0;
-    const boosting = input.nitro && input.throttle > 0 && car.nitro > 0;
+    const now = performance.now();
+    if (input.nitro && !car.wasNitro && car.nitro > 0) car.nitroBoostUntil = now + NITRO_DURATION_MS;
+    car.wasNitro = input.nitro;
+    const boosting = now < car.nitroBoostUntil && input.throttle > 0 && !input.brake;
+    car.boost = boosting;
     if (input.throttle > 0 && !input.brake) {
       // A gentler throttle ramp keeps acceleration controllable on the small track.
-      car.speed += (boosting ? 92 : 46) * input.throttle * seconds;
+      car.speed += (boosting ? 150 : 46) * input.throttle * seconds;
     } else {
       // Coasting and braking bring the car to a stop instead of creating reverse speed.
       const deceleration = input.brake ? 96 : 24;
       car.speed = Math.max(0, car.speed - deceleration * seconds);
     }
-    car.speed = THREE.MathUtils.clamp(car.speed, 0, boosting ? 150 : 112);
+    car.speed = THREE.MathUtils.clamp(car.speed, 0, boosting ? NITRO_SPEED_LIMIT : BASE_SPEED_LIMIT);
     if (boosting) car.nitro = Math.max(0, car.nitro - 28 * seconds);
     // Use a bicycle steering model: the car only yaws while moving, around its turning arc,
     // and the front tires visibly steer into the corner instead of spinning the chassis in place.
@@ -591,7 +599,13 @@ export class Race3D {
       const left = Math.round(col * cellW), top = Math.round(row * cellH);
       const w = Math.round((col + 1) * cellW) - left, h = Math.round((row + 1) * cellH) - top;
       const bottom = height - top - h;
-      this.camera.aspect = w / h; this.camera.updateProjectionMatrix();
+      this.camera.aspect = w / h;
+      const speedFov = THREE.MathUtils.clamp(car.speed / BASE_SPEED_LIMIT, 0, 1) * 2.5;
+      const boostFov = car.boost ? 5 : 0;
+      const targetFov = 72 + speedFov + boostFov;
+      car.cameraFov += (targetFov - car.cameraFov) * (1 - Math.exp(-4 * deltaSeconds));
+      this.camera.fov = car.cameraFov;
+      this.camera.updateProjectionMatrix();
       const forwardX = Math.sin(car.yaw), forwardZ = -Math.cos(car.yaw);
       const chaseDistance = 9.4;
       // Keep a fixed chase distance and pitch, while damping position and aim
@@ -623,7 +637,7 @@ export class Race3D {
     }
     if (now - this.lastHud > 100) {
       this.lastHud = now;
-      window.dispatchEvent(new CustomEvent('hud', { detail: [...this.cars.values()].map(car => ({ id: car.id, name: car.name, nitro: car.nitro, score: Math.floor(car.score), laps: car.laps, latency: car.latency, connected: car.connected, x: car.x, z: car.z, yaw: car.yaw, speed: Math.round(Math.abs(car.speed) * 0.72), penaltyRemaining: car.penaltyRemaining, color: `#${car.color.toString(16).padStart(6, '0')}` })) }));
+      window.dispatchEvent(new CustomEvent('hud', { detail: [...this.cars.values()].map(car => ({ id: car.id, name: car.name, nitro: car.nitro, score: Math.floor(car.score), laps: car.laps, latency: car.latency, connected: car.connected, x: car.x, z: car.z, yaw: car.yaw, speed: Math.round(Math.abs(car.speed) * DISPLAY_SPEED_SCALE), boost: car.boost, penaltyRemaining: car.penaltyRemaining, color: `#${car.color.toString(16).padStart(6, '0')}` })) }));
     }
     this.frame = requestAnimationFrame(this.animate);
   }

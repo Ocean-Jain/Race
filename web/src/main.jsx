@@ -79,8 +79,8 @@ function MiniMap({ players, trackId }) {
       <rect x={110 + start.x * .25 - 8} y={50 + start.z * .17 - 2} width="16" height="4" rx="1" className="map-finish" transform={`rotate(${finishAngle} ${110 + start.x * .25} ${50 + start.z * .17})`}/>
       {players.filter(player => Number.isFinite(player.x) && Number.isFinite(player.z)).map(player => {
         const position = mapPoint(player);
-        return <g key={player.id} transform={`translate(${position.x} ${position.y}) rotate(${(player.yaw || 0) * 180 / Math.PI}) scale(1.05)`}>
-          <circle className="map-player-glow" r="5" fill={player.color || '#ffffff'}/>
+        return <g key={player.id} transform={`translate(${position.x} ${position.y}) rotate(${(player.yaw || 0) * 180 / Math.PI}) scale(.9)`}>
+          <circle className="map-player-glow" r="4.5" fill={player.color || '#ffffff'}/>
           <path className="map-player-marker" d="M0 -8 C2 -8 2.8 -5.7 3.2 -3.6 L4.7 -.6 V3.7 H3.3 V6.8 H-3.3 V3.7 H-4.7 V-.6 L-3.2 -3.6 C-2.8 -5.7 -2 -8 0 -8Z" fill={player.color || '#ffffff'} stroke="#ffffff" strokeWidth="1.3"/>
           <ellipse className="map-player-cockpit" cx="0" cy="-2" rx="1.45" ry="2"/>
           <path className="map-player-wing" d="M-4.6 3.1h9.2"/>
@@ -92,8 +92,8 @@ function MiniMap({ players, trackId }) {
 }
 
 function Dashboard({ player }) {
-  const speed = Math.max(0, Math.min(120, player?.speed || 0));
-  const needle = -90 + speed / 120 * 180;
+  const speed = Math.max(0, Math.min(100, player?.speed || 0));
+  const needle = -90 + speed / 100 * 180;
   const nitro = Math.max(0, Math.min(100, player?.nitro ?? 100));
   return <div className="dashboard-shell" aria-label={`Car dashboard, ${speed} kilometers per hour`}>
     <div className="dashboard-panel">
@@ -102,7 +102,7 @@ function Dashboard({ player }) {
         <svg viewBox="0 0 120 76" aria-hidden="true">
           <path className="gauge-ticks" d="M18 66v-7m4-10 5 2m3-15 4 4m9-13 2 6m19-10v7m18-1-2 6m15 5-4 4m10 11-5 2m10 9v-7"/>
           <path className="gauge-track" d="M18 66 A42 42 0 1 1 102 66"/>
-          <path className="gauge-active" d="M18 66 A42 42 0 1 1 102 66" pathLength="100" style={{ strokeDasharray:`${speed / 120 * 100} 100` }}/>
+          <path className="gauge-active" d="M18 66 A42 42 0 1 1 102 66" pathLength="100" style={{ strokeDasharray:`${speed} 100` }}/>
           <g transform={`rotate(${needle} 60 65)`}><path className="gauge-needle" d="M60 65 L60 27"/><circle className="gauge-hub" cx="60" cy="65" r="3.5"/></g>
         </svg>
         <div className="speed-digital"><strong>{speed}</strong><span>KM/H</span></div>
