@@ -496,13 +496,15 @@ export class Race3D {
       ? THREE.MathUtils.clamp(input.steer * steeringGain + trackAssist, -1, 1)
       : 0;
     const now = performance.now();
-    if (input.nitro && !car.wasNitro && car.nitro > 0) car.nitroBoostUntil = now + NITRO_DURATION_MS;
+    // The server only relays nitro while the player has charge. Trust the
+    // relayed press edge instead of a possibly stale local charge snapshot.
+    if (input.nitro && !car.wasNitro) car.nitroBoostUntil = now + NITRO_DURATION_MS;
     car.wasNitro = input.nitro;
-    const boosting = now < car.nitroBoostUntil && input.throttle > 0 && !input.brake;
+    const boosting = now < car.nitroBoostUntil && !input.brake;
     car.boost = boosting;
-    if (input.throttle > 0 && !input.brake) {
+    if ((input.throttle > 0 || boosting) && !input.brake) {
       // A gentler throttle ramp keeps acceleration controllable on the small track.
-      car.speed += (boosting ? 150 : 46) * input.throttle * seconds;
+      car.speed += (boosting ? 150 : 46) * (boosting ? 1 : input.throttle) * seconds;
     } else {
       // Coasting and braking bring the car to a stop instead of creating reverse speed.
       const deceleration = input.brake ? 96 : 24;
