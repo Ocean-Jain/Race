@@ -306,14 +306,14 @@ export class Race3D {
   addPickups() {
     const ringMat = new THREE.MeshStandardMaterial({ color: 0x66ffd1, emissive: 0x19d99b, emissiveIntensity: 2.3, metalness: 0.3, roughness: 0.22 });
     const orbMat = new THREE.MeshStandardMaterial({ color: 0xc7fff2, emissive: 0x42ffd1, emissiveIntensity: 2.8, roughness: 0.18 });
-    const locations = [0.48, 1.32, 2.18, 3.05, 3.95, 4.88, 5.68];
-    const offsets = [-21, 18, -16, 22, -20, 17, -14];
+    const locations = [1.32, 4.88];
+    const offsets = [18, -18];
     locations.forEach((progress, index) => {
       const point = pointOnTrack(TRACK_START_T + progress, offsets[index]);
       const x = point.x, z = point.z;
       const group = new THREE.Group(); group.position.set(x, point.y + 2, z); this.scene.add(group);
-      const ring = new THREE.Mesh(new THREE.TorusGeometry(8, 1.15, 10, 32), ringMat); ring.rotation.x = -Math.PI / 2; group.add(ring);
-      const orb = new THREE.Mesh(new THREE.IcosahedronGeometry(3.4, 1), orbMat); orb.position.y = 5; group.add(orb);
+      const ring = new THREE.Mesh(new THREE.TorusGeometry(5.5, 0.8, 10, 32), ringMat); ring.rotation.x = -Math.PI / 2; group.add(ring);
+      const orb = new THREE.Mesh(new THREE.IcosahedronGeometry(2.3, 1), orbMat); orb.position.y = 4; group.add(orb);
       this.pickups.push({ group, ring, orb, x, z, point, phase: index * 0.7 });
     });
   }
@@ -602,14 +602,14 @@ export class Race3D {
       const w = Math.round((col + 1) * cellW) - left, h = Math.round((row + 1) * cellH) - top;
       const bottom = height - top - h;
       this.camera.aspect = w / h;
-      const speedFov = THREE.MathUtils.clamp(car.speed / BASE_SPEED_LIMIT, 0, 1) * 2.5;
-      const boostFov = car.boost ? 5 : 0;
+      const speedFov = THREE.MathUtils.clamp(car.speed / BASE_SPEED_LIMIT, 0, 1) * 1.25;
+      const boostFov = car.boost ? 1.75 : 0;
       const targetFov = 72 + speedFov + boostFov;
       car.cameraFov += (targetFov - car.cameraFov) * (1 - Math.exp(-4 * deltaSeconds));
       this.camera.fov = car.cameraFov;
       this.camera.updateProjectionMatrix();
       const forwardX = Math.sin(car.yaw), forwardZ = -Math.cos(car.yaw);
-      const chaseDistance = 9.4;
+      const chaseDistance = car.boost ? 7.2 : 8;
       // Keep a fixed chase distance and pitch, while damping position and aim
       // independently for smooth cornering and penalty resets.
       const desiredPosition = new THREE.Vector3(car.x - forwardX * chaseDistance, car.group.position.y + 4.5 + car.jump * 0.25, car.z - forwardZ * chaseDistance);

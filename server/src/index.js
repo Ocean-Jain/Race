@@ -12,8 +12,8 @@ const TICK_MS = 50;
 const SESSION_TTL = 60_000;
 const TRACK_START_T = -Math.PI / 2;
 const TRACK_ID = TRACKS[0].id;
-const RECHARGE_PROGRESS = [0.48, 1.32, 2.18, 3.05, 3.95, 4.88, 5.68];
-const RECHARGE_OFFSETS = [-21, 18, -16, 22, -20, 17, -14];
+const RECHARGE_PROGRESS = [1.32, 4.88];
+const RECHARGE_OFFSETS = [18, -18];
 function rechargeZones(trackId) {
   return RECHARGE_PROGRESS.map((progress, index) => {
     const t = TRACK_START_T + progress, before = sampleTrack(trackId, t - 0.001), after = sampleTrack(trackId, t + 0.001);
@@ -100,7 +100,7 @@ function onMessage(ws, raw) {
       for (const claim of m.cars.slice(0, 8)) {
         const p = room.players.get(claim.id); if (!p) continue;
         const x = Number(claim.x), y = Number(claim.y); if (!Number.isFinite(x) || !Number.isFinite(y) || Math.abs(x) > 3000 || Math.abs(y) > 3000) continue;
-        const pickup = room.rechargeZones.some(([px,py]) => Math.hypot(x-px,y-py) < 48);
+        const pickup = room.rechargeZones.some(([px,py]) => Math.hypot(x-px,y-py) < 22);
         if (pickup && now - (p.lastPickup || 0) > 1500) { p.nitro = Math.min(100, p.nitro + 35); p.lastPickup = now; send(p.ws, 'recharge', { nitro: p.nitro }); }
         p.score = Math.max(0, Math.min(999999, Number(claim.score) || 0));
         cars.push({ id: p.id, x, y, angle: Number(claim.angle) || 0, score: p.score, nitro: p.nitro });
