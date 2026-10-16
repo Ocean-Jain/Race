@@ -168,3 +168,21 @@ footer{border-top-color:#d4e4ff12;color:#a4b1c0}.footer-brandline{display:flex;a
 .circuit-meta{border-color:#63ccff3b}.circuit-meta b{color:#d8f4ff}
 .racer-meta{gap:5px;padding-inline:8px;background:#101a27c9}.racer-meta b{color:#ffe88c;font-size:11px}.racer-meta small{color:#b1bfca}
 @media(max-width:700px){.race-meta{gap:5px;margin-bottom:7px}.race-meta-badge{min-height:23px;gap:5px;padding:3px 7px;font-size:8px}.race-meta-badge small{font-size:6px}}
+
+/* Large glass circuit card inspired by the supplied Infinity Circuit reference. */
+.minimap{top:50%;left:50%;right:auto;transform:translate(-50%,-50%);width:min(76vw,760px);min-width:280px;padding:18px 24px 13px;border:1px solid #b8d6e566;border-radius:18px;background:rgba(3,6,9,.82);backdrop-filter:blur(11px) saturate(.8);-webkit-backdrop-filter:blur(11px) saturate(.8);box-shadow:0 22px 70px #000b,inset 0 1px #ffffff19,0 0 0 1px #ffffff08}
+.minimap::before{background:linear-gradient(145deg,#d9f3ff12,transparent 42%,#7cf6d407)}
+.minimap-heading{min-height:32px;color:#bceeff;font:800 clamp(19px,2.5vw,31px)/1 'Barlow Condensed','Arial Narrow',sans-serif;letter-spacing:.035em;text-shadow:0 2px 12px #61cfff44}
+.minimap-heading span{display:inline-flex;align-items:center;gap:7px;padding:4px 8px;border:0;border-radius:0;background:transparent;color:#38e89b;font:800 clamp(16px,2vw,25px)/1 'Barlow Condensed','Arial Narrow',sans-serif;letter-spacing:.04em;text-shadow:0 0 12px #22e78a44}
+.minimap-heading span::after{content:"";width:8px;height:8px;border-radius:50%;background:#39efa0;box-shadow:0 0 9px #39efa088}
+.minimap svg{width:100%;max-height:min(42vh,310px);margin:12px 0 7px}
+.map-track-outer{stroke:#030507;stroke-width:29;filter:drop-shadow(0 4px 5px #000c)}
+.map-track-inner{stroke:#151b20;stroke-width:22}
+.map-track-dash{stroke:#64eaf0;stroke-width:1.25;stroke-dasharray:2.5 2.1;opacity:.96;filter:drop-shadow(0 0 2px #50dce377)}
+.map-finish{fill:#eafcff;stroke:#10171b;stroke-width:1.2}
+.map-player-glow{opacity:.4;filter:drop-shadow(0 0 3px currentColor)}
+.map-player-marker{stroke:#030608;stroke-width:1.5;filter:drop-shadow(0 1px 3px #000c)}
+.minimap-legend{color:#a4b5c1;font-size:9px;letter-spacing:.5px}
+.minimap-legend span{color:#b8c7d1}
+.shell.immersive .minimap,.shell:fullscreen .minimap{width:min(76vw,760px);min-width:280px}
+@media(max-width:700px){.minimap{top:50%;width:calc(100% - 24px);min-width:0;padding:12px 14px 9px;border-radius:14px}.minimap-heading{min-height:26px;font-size:21px}.minimap-heading span{font-size:18px}.minimap-heading span::after{width:7px;height:7px}.minimap svg{max-height:34vh;margin:8px 0 4px}.map-track-outer{stroke-width:26}.map-track-inner{stroke-width:19}.map-track-dash{stroke-width:1.15}.minimap-legend{font-size:8px}.shell.immersive .minimap,.shell:fullscreen .minimap{width:calc(100% - 18px);min-width:0}}
